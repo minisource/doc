@@ -12,6 +12,7 @@ import {seed} from "./lib/seed";
 
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
+import { Docs } from './collections/Docs'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -28,7 +29,7 @@ export default buildConfig({
     });
 
     if (!totalDocs) {
-      seed({payload, req});
+      await seed({payload, req});
     }
   },
   sharp,
@@ -48,7 +49,7 @@ export default buildConfig({
       baseDir: path.resolve(dirname),
     },
   },
-  collections: [Users, Media],
+  collections: [Users, Media, Docs],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET ?
     process.env.PAYLOAD_SECRET :

@@ -1,4 +1,5 @@
-import { source } from '@/lib/source';
+import { getPayload } from 'payload';
+import configPromise from '@/payload.config';
 import {
   DocsPage,
   DocsBody,
@@ -6,47 +7,68 @@ import {
   DocsTitle,
 } from 'fumadocs-ui/page';
 import { notFound } from 'next/navigation';
-import { createRelativeLink } from 'fumadocs-ui/mdx';
-import { getMDXComponents } from '@/mdx-components';
+import { RichText } from '@payloadcms/richtext-lexical/react';
+import type { Doc } from '@/payload-types';
 
 export default async function Page(props: {
   params: Promise<{ slug?: string[] }>;
 }) {
   const params = await props.params;
-  const page = source.getPage(params.slug);
-  if (!page) notFound();
+  const slug = params.slug?.join('/') || 'index';
 
-  const MDXContent = page.data.body;
+  const payload = await getPayload({ config: configPromise });
+
+  const docs = await payload.find({
+    collection: 'docs',
+    where: {
+      slug: {
+        equals: slug,
+      },
+    },
+  });
+
+  const doc = docs.docs[0] as Doc;
+  if (!doc) notFound();
 
   return (
-    <DocsPage toc={page.data.toc} full={page.data.full}>
-      <DocsTitle>{page.data.title}</DocsTitle>
-      <DocsDescription>{page.data.description}</DocsDescription>
+    <DocsPage>
+      <DocsTitle>{doc.title}</DocsTitle>
+      <DocsDescription>{doc.description || ''}</DocsDescription>
       <DocsBody>
-        <MDXContent
-          components={getMDXComponents({
-            // this allows you to link to other pages with relative file paths
-            a: createRelativeLink(source, page),
-          })}
-        />
+        {doc.content ? <RichText data={doc.content} /> : <p>No content yet.</p>}
       </DocsBody>
     </DocsPage>
   );
 }
 
 export async function generateStaticParams() {
-  return source.generateParams();
+  // Since Payload is not available at build time, return empty for now
+  // In production, this would be handled by ISR or dynamic rendering
+  return [];
 }
 
 export async function generateMetadata(props: {
   params: Promise<{ slug?: string[] }>;
 }) {
   const params = await props.params;
-  const page = source.getPage(params.slug);
-  if (!page) notFound();
+  const slug = params.slug?.join('/') || 'index';
+
+  const payload = await getPayload({ config: configPromise });
+
+  const docs = await payload.find({
+    collection: 'docs',
+    where: {
+      slug: {
+        equals: slug,
+      },
+    },
+  });
+
+  const doc = docs.docs[0] as Doc;
+  if (!doc) notFound();
 
   return {
-    title: page.data.title,
-    description: page.data.description,
+    title: doc.title,
+    description: doc.description || '',
   };
 }

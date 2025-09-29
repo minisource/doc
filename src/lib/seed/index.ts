@@ -14,7 +14,7 @@ export async function seed({
   payload.logger.info("🌱 Seeding database...");
 
   await Promise.all(
-    ["users"].map(async (collection) => {
+    ["users", "docs"].map(async (collection) => {
       if (collection === "users") {
         await payload.db.deleteMany({
           collection,
@@ -47,6 +47,7 @@ export async function seed({
   try {
     await seedUsers(payload, req);
     await seedMedia(payload);
+    await seedDocs(payload);
   } catch (error) {
     payload.logger.error(
       `❌ Error seeding initial data: ${error instanceof Error ? error.message : "Unknown error"}`
@@ -56,6 +57,35 @@ export async function seed({
   payload.logger.info("🎉 Database seeded successfully! 🌱");
 
   return {message: "Database seeded successfully!"};
+}
+
+export async function seedDocs(payload: Payload) {
+  payload.logger.info("📄 Seeding docs...");
+
+  const docs = [
+    {
+      title: "Getting Started",
+      slug: "getting-started",
+      description: "Learn how to get started with our platform",
+      order: 1,
+    },
+    {
+      title: "API Reference",
+      slug: "api-reference",
+      description: "Complete API reference",
+      order: 2,
+    },
+  ];
+
+  for (const doc of docs) {
+    await payload.create({
+      collection: "docs",
+      data: doc as any,
+    });
+    payload.logger.info(`✅ Created doc: ${doc.title}`);
+  }
+
+  payload.logger.info("📄 Docs seeded!");
 }
 
 export async function getOrUploadMedia(
