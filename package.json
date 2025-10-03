@@ -12,6 +12,7 @@
     "postinstall": "fumadocs-mdx"
   },
   "dependencies": {
+    "@fumadocs/mdx-remote": "^1.4.1",
     "@libsql/client": "^0.15.10",
     "@payloadcms/db-sqlite": "^3.48.0",
     "@payloadcms/next": "^3.53.0",

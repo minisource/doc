@@ -1,23 +1,33 @@
-import '@/app/(fumadocs)/global.css';
-import { RootProvider } from 'fumadocs-ui/provider';
-import { Inter } from 'next/font/google';
+import { DocsLayout } from 'fumadocs-ui/layouts/notebook';
+import type { ReactNode } from 'react';
+import { baseOptions } from '@/app/(fumadocs)/layout.config';
+import { getPayload } from 'payload';
+import configPromise from '@/payload.config';
+import type { Doc } from '@/payload-types';
 
-export const metadata = {
-  description: 'A blank template using Fumadocs & Payload in a Next.js app.',
-  title: 'Fumadocs+Payload Blank Template',
+export default async function Layout({ children }: { children: ReactNode }) {
+  const payload = await getPayload({ config: configPromise });
+
+  const docs = await payload.find({
+    collection: 'docs',
+    limit: 1000,
+    sort: 'order',
+  });
+
+  const tree = {
+    name: 'docs',
+    children: docs.docs
+      .filter((doc: Doc) => doc.slug !== 'index') // Exclude the home page from navigation
+      .map((doc: Doc) => ({
+        type: 'page' as const,
+        name: doc.title,
+        url: `/${doc.slug}`,
+      })),
+  };
+
+  return (
+    <DocsLayout tree={tree} {...baseOptions}>
+      {children}
+    </DocsLayout>
+  );
 }
-
-const inter = Inter({
-  subsets: ['latin'],
-});
-
- export default async function RootLayout(props: { children: React.ReactNode }) {
-   const { children } = props
-   return (
-     <html lang="en" className={inter.className} suppressHydrationWarning>
-       <body className="flex flex-col min-h-screen">
-         <RootProvider>{children}</RootProvider>
-       </body>
-     </html>
-   );
- }

@@ -7,8 +7,15 @@ import {
   DocsTitle,
 } from 'fumadocs-ui/page';
 import { notFound } from 'next/navigation';
-import { RichText } from '@payloadcms/richtext-lexical/react';
+import { compileMDX } from '@fumadocs/mdx-remote';
+import { getMDXComponents } from '@/mdx-components';
 import type { Doc } from '@/payload-types';
+
+// Create MDX components without problematic imports
+const safeMDXComponents = {
+  ...getMDXComponents(),
+  // Remove any components that might cause script issues
+};
 
 export default async function Page(props: {
   params: Promise<{ slug?: string[] }>;
@@ -30,12 +37,20 @@ export default async function Page(props: {
   const doc = docs.docs[0] as Doc;
   if (!doc) notFound();
 
+  const mdx = await compileMDX({
+    source: doc.content,
+    components: safeMDXComponents,
+    mdxOptions: {
+      baseUrl: process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
+    },
+  });
+
   return (
     <DocsPage>
       <DocsTitle>{doc.title}</DocsTitle>
       <DocsDescription>{doc.description || ''}</DocsDescription>
       <DocsBody>
-        {doc.content ? <RichText data={doc.content} /> : <p>No content yet.</p>}
+        <mdx.body components={safeMDXComponents} />
       </DocsBody>
     </DocsPage>
   );

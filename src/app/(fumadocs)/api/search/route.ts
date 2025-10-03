@@ -12,15 +12,17 @@ const mockSource = {
       limit: 1000,
     });
 
-    return docs.docs.map((doc: Doc) => ({
-      slugs: doc.slug.split('/'),
-      url: `/docs/${doc.slug}`,
-      data: {
-        title: doc.title,
-        description: doc.description || '',
-        body: JSON.stringify(doc.content), // Simple text extraction
-      },
-    }));
+    return docs.docs
+      .filter((doc: Doc) => doc.slug !== 'index') // Exclude home page from search
+      .map((doc: Doc) => ({
+        slugs: doc.slug.split('/'),
+        url: `/${doc.slug}`,
+        data: {
+          title: doc.title,
+          description: doc.description || '',
+          body: JSON.stringify(doc.content), // Simple text extraction
+        },
+      }));
   },
 };
 

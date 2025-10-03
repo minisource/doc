@@ -176,21 +176,10 @@ export interface Doc {
    * Brief description for SEO and previews
    */
   description?: string | null;
-  content?: {
-    root: {
-      type: string;
-      children: {
-        type: any;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
+  /**
+   * Markdown content for the documentation page
+   */
+  content: string;
   /**
    * Order for sorting pages
    */

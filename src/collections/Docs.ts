@@ -31,8 +31,11 @@ export const Docs: CollectionConfig = {
     },
     {
       name: 'content',
-      type: 'richText',
-      editor: lexicalEditor(),
+      type: 'textarea',
+      required: true,
+      admin: {
+        description: 'Markdown content for the documentation page',
+      },
     },
     {
       name: 'order',
