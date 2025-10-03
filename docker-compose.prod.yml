@@ -1,0 +1,145 @@
+version: '3.8'
+
+# Production-specific overrides
+# Use with: docker-compose -f docker-compose.yml -f docker-compose.prod.yml up -d
+
+services:
+  fumadocs-payloadcms:
+    # Use pre-built image for production (optional)
+    # image: your-registry/fumadocs-payloadcms:latest
+
+    environment:
+      # Production-specific environment variables
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+
+      # Security headers
+      - SECURE_HEADERS=true
+
+      # Database optimizations
+      - DATABASE_CONNECTION_POOL_SIZE=10
+      - DATABASE_CONNECTION_TIMEOUT=30000
+
+      # CDN and external services
+      - NEXT_PUBLIC_CDN_URL=${CDN_URL}
+      - VERCEL_BLOB_READ_WRITE_TOKEN=${VERCEL_BLOB_READ_WRITE_TOKEN}
+
+    # Production resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '2.0'
+          memory: 2G
+        reservations:
+          cpus: '1.0'
+          memory: 1G
+
+      restart_policy:
+        condition: on-failure
+        delay: 5s
+        max_attempts: 3
+        window: 120s
+
+    # Production health checks
+    healthcheck:
+      test: ["CMD", "curl", "-f", "-H", "User-Agent: Docker-Healthcheck", "http://localhost:3000/api/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+
+  # Production database (PostgreSQL recommended for production)
+  postgres:
+    image: postgres:15-alpine
+    container_name: fumadocs-postgres-prod
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-fumadocs_prod}
+      - POSTGRES_USER=${POSTGRES_USER:-fumadocs}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_INITDB_ARGS=--encoding=UTF-8
+    volumes:
+      - postgres_prod_data:/var/lib/postgresql/data
+      # Optional: Initialize with schema
+      # - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - fumadocs-network
+    restart: unless-stopped
+
+    # Database health check
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-fumadocs} -d ${POSTGRES_DB:-fumadocs_prod}"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+    # Database resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Redis for caching (optional but recommended for production)
+  redis:
+    image: redis:7-alpine
+    container_name: fumadocs-redis-prod
+    command: redis-server --appendonly yes --maxmemory 512mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_prod_data:/data
+    networks:
+      - fumadocs-network
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+        reservations:
+          cpus: '0.25'
+          memory: 256M
+
+  # Nginx reverse proxy (optional)
+  nginx:
+    image: nginx:alpine
+    container_name: fumadocs-nginx-prod
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./ssl:/etc/nginx/ssl:ro
+    depends_on:
+      - fumadocs-payloadcms
+    networks:
+      - fumadocs-network
+    restart: unless-stopped
+
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 256M
+        reservations:
+          cpus: '0.25'
+          memory: 128M
+
+volumes:
+  postgres_prod_data:
+    driver: local
+  redis_prod_data:
+    driver: local
+
+networks:
+  fumadocs-network:
+    driver: bridge

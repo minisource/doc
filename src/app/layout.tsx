@@ -15,12 +15,22 @@ export default function RootLayout({
 }: {
   children: React.ReactNode
 }) {
+  // RTL languages
+  const rtlLocales = ['fa', 'ar', 'he'];
+
+  // Default locale (can be made configurable via env)
+  const defaultLocale = process.env.FUMADOCS_DEFAULT_LOCALE || 'en';
+
+  // Check if current locale is RTL
+  const isRTL = rtlLocales.includes(defaultLocale);
+
   return (
     <RootProvider
+      dir={isRTL ? 'rtl' : 'ltr'}
       i18n={{
-        locale: 'en',
+        locale: defaultLocale,
         translations: {
-          search: 'Search documentation...',
+          search: 'Search',
           searchNoResult: 'No results found',
           toc: 'Table of Contents',
           tocNoHeadings: 'No headings found',
@@ -31,15 +41,17 @@ export default function RootLayout({
           chooseTheme: 'Choose theme',
           editOnGithub: 'Edit on GitHub',
         },
+        // Persian translations will be loaded dynamically based on locale
         locales: [
           { locale: 'en', name: 'English' },
           { locale: 'es', name: 'Español' },
           { locale: 'fr', name: 'Français' },
           { locale: 'de', name: 'Deutsch' },
+          { locale: 'fa', name: 'فارسی' },
         ],
       }}
     >
-      <html lang="en" suppressHydrationWarning>
+      <html lang={defaultLocale} dir={isRTL ? 'rtl' : 'ltr'} suppressHydrationWarning>
         <body className={inter.className}>
           {children}
         </body>

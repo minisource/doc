@@ -1,0 +1,78 @@
+version: '3.8'
+
+# Override file for development environment
+# This file is automatically merged with docker-compose.yml when running `docker-compose up`
+
+services:
+  fumadocs-payloadcms:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: builder  # Use builder stage for development with hot reload
+    container_name: fumadocs-payloadcms-dev
+    ports:
+      - "3000:3000"
+    environment:
+      # Development environment
+      - NODE_ENV=development
+      - NEXT_TELEMETRY_DISABLED=0  # Enable telemetry in dev
+
+      # Development database (separate from production)
+      - DATABASE_URI=file:./sqlite.dev.db
+
+      # Development theme (can be different from production)
+      - FUMADOCS_THEME=dusk
+
+    volumes:
+      # Mount source code for hot reload
+      - .:/app
+      - /app/node_modules  # Don't mount node_modules to avoid conflicts
+
+      # Development database
+      - sqlite_dev_data:/app/sqlite.dev.db
+
+      # Development media
+      - media_dev_data:/app/media
+
+    networks:
+      - fumadocs-network
+
+    # Override command for development
+    command: npm run dev
+
+    # Development-specific healthcheck
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+  # Development database (SQLite with file watching)
+  # postgres-dev:
+  #   image: postgres:15-alpine
+  #   container_name: fumadocs-postgres-dev
+  #   environment:
+  #     - POSTGRES_DB=fumadocs_dev
+  #     - POSTGRES_USER=fumadocs_dev
+  #     - POSTGRES_PASSWORD=dev_password
+  #   volumes:
+  #     - postgres_dev_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5433:5432"  # Different port to avoid conflicts
+  #   networks:
+  #     - fumadocs-network
+  #   profiles:
+  #     - dev-db
+
+volumes:
+  sqlite_dev_data:
+    driver: local
+  media_dev_data:
+    driver: local
+  postgres_dev_data:
+    driver: local
+
+networks:
+  fumadocs-network:
+    driver: bridge

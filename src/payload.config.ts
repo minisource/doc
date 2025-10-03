@@ -14,6 +14,11 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Docs } from './collections/Docs'
 import { Tools } from './collections/Tools'
+import { NavigationLinks } from './collections/NavigationLinks'
+import { SidebarGroups } from './collections/SidebarGroups'
+import { SidebarItems } from './collections/SidebarItems'
+import { Components } from './collections/Components'
+import { OpenAPISpecs } from './collections/OpenAPISpecs'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -23,11 +28,13 @@ export default buildConfig({
     // Create a mock request for seeding operations
     const mockReq = {} as any;
 
+    const adminEmail = process.env.ADMIN_EMAIL || "admin@example.com";
+
     const {totalDocs} = await payload.count({
       collection: "users",
       where: {
         email: {
-          equals: "test@gmail.com",
+          equals: adminEmail,
         },
       },
     });
@@ -57,25 +64,29 @@ export default buildConfig({
         label: 'Deutsch',
         code: 'de',
       },
+      {
+        label: 'فارسی',
+        code: 'fa',
+      },
     ],
     defaultLocale: 'en',
     fallback: true,
   },
   admin: {
-   autoLogin:
-     process.env.NODE_ENV === "development"
-       ? {
-           email: "test@gmail.com",
-           password: "test",
-           prefillOnly: true,
-         }
-       : false,
-     user: Users.slug,
-     importMap: {
-       baseDir: path.resolve(dirname),
-     },
-   },
-   collections: [Users, Media, Docs, Tools],
+  autoLogin:
+    process.env.NODE_ENV === "development"
+      ? {
+          email: process.env.ADMIN_EMAIL || "admin@example.com",
+          password: process.env.ADMIN_PASSWORD || "admin",
+          prefillOnly: true,
+        }
+      : false,
+    user: Users.slug,
+    importMap: {
+      baseDir: path.resolve(dirname),
+    },
+  },
+   collections: [Users, Media, Docs, Tools, NavigationLinks, SidebarGroups, SidebarItems, Components, OpenAPISpecs],
    editor: lexicalEditor(),
    secret: process.env.PAYLOAD_SECRET || 'YOUR_SECRET_HERE',
    typescript: {

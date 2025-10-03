@@ -1,3 +1,11 @@
 @import 'tailwindcss';
+
+/* Dynamic theme import based on environment variable */
+/* Available themes: black, catppuccin, dusk, neutral, ocean, preset, purple, shadcn, shiki, style, vitepress */
+/* This import will be replaced by the setup-theme script based on FUMADOCS_THEME */
 @import 'fumadocs-ui/css/neutral.css';
-@import 'fumadocs-ui/css/preset.css';
+@import 'fumadocs-ui/css/neutral.css';
+
+/* :root {
+  --fd-layout-width: 1400px;
+} */

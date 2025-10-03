@@ -1,0 +1,115 @@
+version: '3.8'
+
+services:
+  # Main application
+  fumadocs-payloadcms:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner
+    container_name: fumadocs-payloadcms
+    ports:
+      - "3000:3000"
+    environment:
+      # Database Configuration
+      - DATABASE_URI=file:./sqlite.db
+      - PAYLOAD_SECRET=${PAYLOAD_SECRET:-your-super-secret-key-change-this}
+
+      # Fumadocs Configuration
+      - FUMADOCS_TITLE=${FUMADOCS_TITLE:-Documentation Platform}
+      - FUMADOCS_THEME=${FUMADOCS_THEME:-neutral}
+      - FUMADOCS_DEFAULT_LOCALE=${FUMADOCS_DEFAULT_LOCALE:-en}
+      - FUMADOCS_GITHUB_URL=${FUMADOCS_GITHUB_URL:-}
+      - FUMADOCS_PRIMARY_COLOR=${FUMADOCS_PRIMARY_COLOR:-#007acc}
+      - FUMADOCS_LOGO_URL=${FUMADOCS_LOGO_URL:-}
+      - FUMADOCS_CUSTOM_LAYOUT_WIDTH=${FUMADOCS_CUSTOM_LAYOUT_WIDTH:-false}
+      - FUMADOCS_USE_DYNAMIC_NAV=${FUMADOCS_USE_DYNAMIC_NAV:-true}
+
+      # Next.js Configuration
+      - NEXT_PUBLIC_BASE_URL=${NEXT_PUBLIC_BASE_URL:-http://localhost:3000}
+      - NODE_ENV=production
+      - NEXT_TELEMETRY_DISABLED=1
+
+      # Optional: External Services
+      - VERCEL_BLOB_READ_WRITE_TOKEN=${VERCEL_BLOB_READ_WRITE_TOKEN:-}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID:-}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY:-}
+      - S3_BUCKET=${S3_BUCKET:-}
+      - S3_REGION=${S3_REGION:-}
+      - S3_ENDPOINT=${S3_ENDPOINT:-}
+
+    volumes:
+      # Persist SQLite database
+      - sqlite_data:/app/sqlite.db
+      # Optional: Persist uploaded media
+      - media_data:/app/media
+
+    networks:
+      - fumadocs-network
+
+    restart: unless-stopped
+
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+    # Resource limits
+    deploy:
+      resources:
+        limits:
+          cpus: '1.0'
+          memory: 1G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
+
+  # Optional: PostgreSQL database (uncomment if using PostgreSQL instead of SQLite)
+  # postgres:
+  #   image: postgres:15-alpine
+  #   container_name: fumadocs-postgres
+  #   environment:
+  #     - POSTGRES_DB=fumadocs
+  #     - POSTGRES_USER=fumadocs
+  #     - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-fumadocs_password}
+  #   volumes:
+  #     - postgres_data:/var/lib/postgresql/data
+  #   ports:
+  #     - "5432:5432"
+  #   networks:
+  #     - fumadocs-network
+  #   restart: unless-stopped
+  #   healthcheck:
+  #     test: ["CMD-SHELL", "pg_isready -U fumadocs"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+  # Optional: Redis for caching (uncomment if needed)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: fumadocs-redis
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - redis_data:/data
+  #   networks:
+  #     - fumadocs-network
+  #   restart: unless-stopped
+  #   command: redis-server --appendonly yes
+
+volumes:
+  sqlite_data:
+    driver: local
+  media_data:
+    driver: local
+  # postgres_data:
+  #   driver: local
+  # redis_data:
+  #   driver: local
+
+networks:
+  fumadocs-network:
+    driver: bridge

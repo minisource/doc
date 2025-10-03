@@ -71,6 +71,11 @@ export interface Config {
     media: Media;
     docs: Doc;
     tools: Tool;
+    'navigation-links': NavigationLink;
+    'sidebar-groups': SidebarGroup;
+    'sidebar-items': SidebarItem;
+    components: Component;
+    'open-api-specs': OpenApiSpec;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -81,6 +86,11 @@ export interface Config {
     media: MediaSelect<false> | MediaSelect<true>;
     docs: DocsSelect<false> | DocsSelect<true>;
     tools: ToolsSelect<false> | ToolsSelect<true>;
+    'navigation-links': NavigationLinksSelect<false> | NavigationLinksSelect<true>;
+    'sidebar-groups': SidebarGroupsSelect<false> | SidebarGroupsSelect<true>;
+    'sidebar-items': SidebarItemsSelect<false> | SidebarItemsSelect<true>;
+    components: ComponentsSelect<false> | ComponentsSelect<true>;
+    'open-api-specs': OpenApiSpecsSelect<false> | OpenApiSpecsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -90,7 +100,7 @@ export interface Config {
   };
   globals: {};
   globalsSelect: {};
-  locale: 'en' | 'es' | 'fr' | 'de';
+  locale: 'en' | 'es' | 'fr' | 'de' | 'fa';
   user: User & {
     collection: 'users';
   };
@@ -221,6 +231,196 @@ export interface Tool {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "navigation-links".
+ */
+export interface NavigationLink {
+  id: number;
+  label: string;
+  url: string;
+  /**
+   * Open link in new tab
+   */
+  external?: boolean | null;
+  enabled?: boolean | null;
+  /**
+   * Display order (lower numbers appear first)
+   */
+  order?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sidebar-groups".
+ */
+export interface SidebarGroup {
+  id: number;
+  title: string;
+  /**
+   * Optional description for the group
+   */
+  description?: string | null;
+  /**
+   * Icon name (e.g., "home", "settings")
+   */
+  icon?: string | null;
+  enabled?: boolean | null;
+  /**
+   * Display order (lower numbers appear first)
+   */
+  order?: number | null;
+  /**
+   * Whether this group should be expanded by default
+   */
+  defaultOpen?: boolean | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sidebar-items".
+ */
+export interface SidebarItem {
+  id: number;
+  label: string;
+  url: string;
+  /**
+   * Optional description for the item
+   */
+  description?: string | null;
+  /**
+   * Icon name (e.g., "file", "folder")
+   */
+  icon?: string | null;
+  /**
+   * Parent group (leave empty for root level items)
+   */
+  group?: (number | null) | SidebarGroup;
+  /**
+   * Parent item for nested structure
+   */
+  parent?: (number | null) | SidebarItem;
+  /**
+   * Open link in new tab
+   */
+  external?: boolean | null;
+  enabled?: boolean | null;
+  /**
+   * Display order within group (lower numbers appear first)
+   */
+  order?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "components".
+ */
+export interface Component {
+  id: number;
+  name: string;
+  type:
+    | 'accordion'
+    | 'auto-type-table'
+    | 'banner'
+    | 'code-block'
+    | 'files'
+    | 'github-info'
+    | 'graph-view'
+    | 'zoomable-image'
+    | 'inline-toc'
+    | 'steps'
+    | 'tabs'
+    | 'type-table'
+    | 'callout'
+    | 'custom';
+  /**
+   * Description of what this component does
+   */
+  description?: string | null;
+  /**
+   * Text to insert in rich text editor (e.g., {{accordion}})
+   */
+  placeholder: string;
+  /**
+   * Component-specific configuration options
+   */
+  configuration?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  /**
+   * Example usage or preview
+   */
+  preview?: string | null;
+  enabled?: boolean | null;
+  category?: ('layout' | 'content' | 'interactive' | 'data-display' | 'media') | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "open-api-specs".
+ */
+export interface OpenApiSpec {
+  id: number;
+  title: string;
+  /**
+   * Description of this API specification
+   */
+  description?: string | null;
+  /**
+   * API version (e.g., v1, v2, 1.0.0)
+   */
+  version: string;
+  /**
+   * Upload your OpenAPI/Swagger JSON or YAML file
+   */
+  specFile: number | Media;
+  /**
+   * Base URL for the API (optional, can be overridden in spec)
+   */
+  baseUrl?: string | null;
+  /**
+   * URL slug for this API documentation (e.g., api/v1)
+   */
+  slug: string;
+  /**
+   * API servers/endpoints
+   */
+  servers?:
+    | {
+        url: string;
+        description?: string | null;
+        id?: string | null;
+      }[]
+    | null;
+  /**
+   * Authentication configuration
+   */
+  authentication?: {
+    type?: ('none' | 'bearer' | 'apiKey' | 'basic' | 'oauth2') | null;
+    /**
+     * Name of the API key header/parameter
+     */
+    apiKeyName?: string | null;
+    apiKeyLocation?: ('header' | 'query' | 'cookie') | null;
+  };
+  enabled?: boolean | null;
+  /**
+   * Display order (lower numbers appear first)
+   */
+  order?: number | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
@@ -241,6 +441,26 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'tools';
         value: number | Tool;
+      } | null)
+    | ({
+        relationTo: 'navigation-links';
+        value: number | NavigationLink;
+      } | null)
+    | ({
+        relationTo: 'sidebar-groups';
+        value: number | SidebarGroup;
+      } | null)
+    | ({
+        relationTo: 'sidebar-items';
+        value: number | SidebarItem;
+      } | null)
+    | ({
+        relationTo: 'components';
+        value: number | Component;
+      } | null)
+    | ({
+        relationTo: 'open-api-specs';
+        value: number | OpenApiSpec;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -352,6 +572,96 @@ export interface ToolsSelect<T extends boolean = true> {
   enabled?: T;
   configuration?: T;
   permissions?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "navigation-links_select".
+ */
+export interface NavigationLinksSelect<T extends boolean = true> {
+  label?: T;
+  url?: T;
+  external?: T;
+  enabled?: T;
+  order?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sidebar-groups_select".
+ */
+export interface SidebarGroupsSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  icon?: T;
+  enabled?: T;
+  order?: T;
+  defaultOpen?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "sidebar-items_select".
+ */
+export interface SidebarItemsSelect<T extends boolean = true> {
+  label?: T;
+  url?: T;
+  description?: T;
+  icon?: T;
+  group?: T;
+  parent?: T;
+  external?: T;
+  enabled?: T;
+  order?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "components_select".
+ */
+export interface ComponentsSelect<T extends boolean = true> {
+  name?: T;
+  type?: T;
+  description?: T;
+  placeholder?: T;
+  configuration?: T;
+  preview?: T;
+  enabled?: T;
+  category?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "open-api-specs_select".
+ */
+export interface OpenApiSpecsSelect<T extends boolean = true> {
+  title?: T;
+  description?: T;
+  version?: T;
+  specFile?: T;
+  baseUrl?: T;
+  slug?: T;
+  servers?:
+    | T
+    | {
+        url?: T;
+        description?: T;
+        id?: T;
+      };
+  authentication?:
+    | T
+    | {
+        type?: T;
+        apiKeyName?: T;
+        apiKeyLocation?: T;
+      };
+  enabled?: T;
+  order?: T;
   updatedAt?: T;
   createdAt?: T;
 }

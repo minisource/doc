@@ -40,17 +40,21 @@ export const Users: CollectionConfig = {
 export async function seedUsers(payload: Payload, req: PayloadRequest) {
   payload.logger.info("👤 Uploading user avatars & inserting users...");
 
+  const adminEmail = process.env.ADMIN_EMAIL || "admin@example.com";
+  const adminPassword = process.env.ADMIN_PASSWORD || "admin";
+
   await Promise.all(
     [
       {
-        name: "Test User",
-        email: "test@gmail.com",
+        name: "Admin User",
+        email: adminEmail,
+        password: adminPassword,
         mediaUrl: "https://raw.githubusercontent.com/payloadcms/payload/main/packages/ui/src/assets/payload-favicon.svg",
         roles: ["admin", "user"],
       },
       {
         name: "Demo User",
-        email: "demo@gmail.com",
+        email: "demo@example.com",
         mediaUrl: "https://raw.githubusercontent.com/payloadcms/payload/main/packages/ui/src/assets/payload-favicon.svg",
         roles: ["user"],
       },
@@ -69,7 +73,7 @@ export async function seedUsers(payload: Payload, req: PayloadRequest) {
         data: {
           name: user.name,
           email: user.email,
-          password: user.name.split(" ")[0].toLowerCase() || "test",
+          password: user.password || user.name.split(" ")[0].toLowerCase() || "test",
           avatar: media?.id || null,
           roles: user.roles || ["user"],
         },

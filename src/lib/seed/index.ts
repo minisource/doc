@@ -14,7 +14,7 @@ export async function seed({
   payload.logger.info("🌱 Seeding database...");
 
   await Promise.all(
-    ["users", "docs", "tools"].map(async (collection) => {
+    ["users", "docs", "tools", "navigation-links", "sidebar-groups", "sidebar-items", "components", "open-api-specs"].map(async (collection) => {
       if (collection === "users") {
         await payload.db.deleteMany({
           collection: collection as "users",
@@ -49,6 +49,11 @@ export async function seed({
     await seedMedia(payload);
     await seedDocs(payload);
     await seedTools(payload);
+    await seedNavigationLinks(payload);
+    await seedSidebarGroups(payload);
+    await seedSidebarItems(payload);
+    await seedComponents(payload);
+    await seedOpenAPISpecs(payload);
   } catch (error) {
     payload.logger.error(
       `❌ Error seeding initial data: ${error instanceof Error ? error.message : "Unknown error"}`
@@ -311,6 +316,421 @@ export async function seedTools(payload: Payload) {
   }
 
   payload.logger.info("🔧 Tools seeded!");
+}
+
+export async function seedNavigationLinks(payload: Payload) {
+  payload.logger.info("🔗 Seeding navigation links...");
+
+  const navigationLinks = [
+    {
+      label: "Home",
+      url: "/",
+      external: false,
+      enabled: true,
+      order: 1,
+    },
+    {
+      label: "Admin",
+      url: "/admin",
+      external: false,
+      enabled: true,
+      order: 2,
+    },
+  ];
+
+  for (const link of navigationLinks) {
+    await payload.create({
+      collection: "navigation-links",
+      data: link as any,
+    });
+    payload.logger.info(`✅ Created navigation link: ${link.label}`);
+  }
+
+  payload.logger.info("🔗 Navigation links seeded!");
+}
+
+export async function seedSidebarGroups(payload: Payload) {
+  payload.logger.info("📁 Seeding sidebar groups...");
+
+  const sidebarGroups = [
+    {
+      title: "Getting Started",
+      description: "Introduction and setup guides",
+      icon: "rocket",
+      enabled: true,
+      order: 1,
+      defaultOpen: true,
+    },
+    {
+      title: "API Reference",
+      description: "Complete API documentation",
+      icon: "code",
+      enabled: true,
+      order: 2,
+      defaultOpen: false,
+    },
+    {
+      title: "Advanced",
+      description: "Advanced features and configurations",
+      icon: "settings",
+      enabled: true,
+      order: 3,
+      defaultOpen: false,
+    },
+  ];
+
+  for (const group of sidebarGroups) {
+    await payload.create({
+      collection: "sidebar-groups",
+      data: group as any,
+    });
+    payload.logger.info(`✅ Created sidebar group: ${group.title}`);
+  }
+
+  payload.logger.info("📁 Sidebar groups seeded!");
+}
+
+export async function seedSidebarItems(payload: Payload) {
+  payload.logger.info("📄 Seeding sidebar items...");
+
+  // First, get the created groups
+  const groups = await payload.find({
+    collection: "sidebar-groups",
+    limit: 10,
+  });
+
+  const gettingStartedGroup = groups.docs.find(g => g.title === "Getting Started");
+  const apiGroup = groups.docs.find(g => g.title === "API Reference");
+  const advancedGroup = groups.docs.find(g => g.title === "Advanced");
+
+  const sidebarItems = [
+    {
+      label: "Welcome",
+      url: "/",
+      description: "Welcome to our documentation",
+      icon: "home",
+      group: gettingStartedGroup?.id,
+      enabled: true,
+      order: 1,
+    },
+    {
+      label: "Quick Start",
+      url: "/getting-started",
+      description: "Get started quickly",
+      icon: "zap",
+      group: gettingStartedGroup?.id,
+      enabled: true,
+      order: 2,
+    },
+    {
+      label: "Authentication",
+      url: "/api-reference#authentication",
+      description: "API authentication guide",
+      icon: "key",
+      group: apiGroup?.id,
+      enabled: true,
+      order: 1,
+    },
+    {
+      label: "Users API",
+      url: "/api-reference#users",
+      description: "User management endpoints",
+      icon: "users",
+      group: apiGroup?.id,
+      enabled: true,
+      order: 2,
+    },
+    {
+      label: "Configuration",
+      url: "/advanced#configuration",
+      description: "Advanced configuration options",
+      icon: "cog",
+      group: advancedGroup?.id,
+      enabled: true,
+      order: 1,
+    },
+    {
+      label: "API Documentation",
+      url: "/api/sample-api",
+      description: "Interactive API documentation",
+      icon: "code",
+      group: apiGroup?.id,
+      enabled: true,
+      order: 3,
+    },
+  ];
+
+  for (const item of sidebarItems) {
+    await payload.create({
+      collection: "sidebar-items",
+      data: item as any,
+    });
+    payload.logger.info(`✅ Created sidebar item: ${item.label}`);
+  }
+
+  payload.logger.info("📄 Sidebar items seeded!");
+}
+
+export async function seedComponents(payload: Payload) {
+  payload.logger.info("🧩 Seeding components...");
+
+  const components = [
+    {
+      name: "Callout",
+      type: "callout",
+      description: "Highlight important information with different styles",
+      placeholder: "{{callout}}",
+      configuration: JSON.stringify({
+        type: "info",
+        content: "This is a callout component"
+      }),
+      preview: "Use {{callout}} to insert a callout box",
+      enabled: true,
+      category: "content",
+    },
+    {
+      name: "Accordion",
+      type: "accordion",
+      description: "Collapsible content sections",
+      placeholder: "{{accordion}}",
+      configuration: JSON.stringify({
+        title: "Accordion Title",
+        content: "Accordion content goes here"
+      }),
+      preview: "Use {{accordion}} for collapsible sections",
+      enabled: true,
+      category: "interactive",
+    },
+    {
+      name: "Banner",
+      type: "banner",
+      description: "Prominent notification banners",
+      placeholder: "{{banner}}",
+      configuration: JSON.stringify({
+        variant: "info",
+        content: "This is a banner message"
+      }),
+      preview: "Use {{banner}} for important announcements",
+      enabled: true,
+      category: "content",
+    },
+    {
+      name: "Code Block",
+      type: "code-block",
+      description: "Syntax-highlighted code blocks",
+      placeholder: "{{code-block}}",
+      configuration: JSON.stringify({
+        lang: "javascript",
+        code: "console.log('Hello, World!');"
+      }),
+      preview: "Use {{code-block}} for code examples",
+      enabled: true,
+      category: "content",
+    },
+    {
+      name: "Steps",
+      type: "steps",
+      description: "Numbered step-by-step instructions",
+      placeholder: "{{steps}}",
+      configuration: JSON.stringify({
+        steps: ["First step", "Second step", "Third step"]
+      }),
+      preview: "Use {{steps}} for tutorials",
+      enabled: true,
+      category: "content",
+    },
+    {
+      name: "Type Table",
+      type: "type-table",
+      description: "API type definitions table",
+      placeholder: "{{type-table}}",
+      configuration: JSON.stringify({
+        types: [
+          { name: "string", description: "Text data" },
+          { name: "number", description: "Numeric data" }
+        ]
+      }),
+      preview: "Use {{type-table}} for API documentation",
+      enabled: true,
+      category: "data-display",
+    },
+  ];
+
+  for (const component of components) {
+    await payload.create({
+      collection: "components",
+      data: component as any,
+    });
+    payload.logger.info(`✅ Created component: ${component.name}`);
+  }
+
+  payload.logger.info("🧩 Components seeded!");
+}
+
+export async function seedOpenAPISpecs(payload: Payload) {
+  payload.logger.info("📋 Seeding OpenAPI specifications...");
+
+  // Create a sample OpenAPI spec file
+  const sampleSpec = {
+    openapi: "3.0.1",
+    info: {
+      title: "Sample API",
+      description: "A sample API for demonstration purposes",
+      version: "1.0.0"
+    },
+    servers: [
+      {
+        url: "https://api.example.com/v1",
+        description: "Production server"
+      }
+    ],
+    paths: {
+      "/users": {
+        get: {
+          summary: "Get all users",
+          operationId: "getUsers",
+          responses: {
+            "200": {
+              description: "Successful response",
+              content: {
+                "application/json": {
+                  schema: {
+                    type: "array",
+                    items: {
+                      $ref: "#/components/schemas/User"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        },
+        post: {
+          summary: "Create a new user",
+          operationId: "createUser",
+          requestBody: {
+            content: {
+              "application/json": {
+                schema: {
+                  $ref: "#/components/schemas/User"
+                }
+              }
+            }
+          },
+          responses: {
+            "201": {
+              description: "User created successfully",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/User"
+                  }
+                }
+              }
+            }
+          }
+        }
+      },
+      "/users/{id}": {
+        get: {
+          summary: "Get user by ID",
+          operationId: "getUserById",
+          parameters: [
+            {
+              name: "id",
+              in: "path",
+              required: true,
+              schema: {
+                type: "string"
+              }
+            }
+          ],
+          responses: {
+            "200": {
+              description: "Successful response",
+              content: {
+                "application/json": {
+                  schema: {
+                    $ref: "#/components/schemas/User"
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    components: {
+      schemas: {
+        User: {
+          type: "object",
+          properties: {
+            id: {
+              type: "string"
+            },
+            name: {
+              type: "string"
+            },
+            email: {
+              type: "string",
+              format: "email"
+            }
+          },
+          required: ["name", "email"]
+        }
+      }
+    }
+  };
+
+  // Create the spec file in media
+  const specContent = JSON.stringify(sampleSpec, null, 2);
+  const specBuffer = Buffer.from(specContent);
+
+  const specFile = await payload.create({
+    collection: "media",
+    file: {
+      name: "sample-api-spec.json",
+      data: specBuffer,
+      mimetype: "application/json",
+      size: specBuffer.length,
+    },
+    data: {
+      alt: "Sample API OpenAPI Specification",
+    },
+  });
+
+  // Create the OpenAPI spec record
+  const openAPISpec = {
+    title: "Sample API",
+    description: "A sample API specification for demonstration",
+    version: "1.0.0",
+    specFile: specFile.id,
+    baseUrl: "https://api.example.com/v1",
+    slug: "sample-api",
+    servers: [
+      {
+        url: "https://api.example.com/v1",
+        description: "Production server"
+      },
+      {
+        url: "https://staging.api.example.com/v1",
+        description: "Staging server"
+      }
+    ],
+    authentication: {
+      type: "bearer",
+    },
+    enabled: true,
+    order: 1,
+  };
+
+  await payload.create({
+    collection: "open-api-specs",
+    data: openAPISpec as any,
+  });
+
+  payload.logger.info("✅ Created OpenAPI spec: Sample API");
+  payload.logger.info("📋 OpenAPI specifications seeded!");
 }
 
 export async function getOrUploadMedia(

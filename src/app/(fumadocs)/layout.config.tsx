@@ -1,5 +1,5 @@
-import Image from 'next/image'
 import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
+import { getNavigationLinks } from '@/lib/navigation';
 
 /**
  * Shared layout configurations
@@ -10,18 +10,46 @@ import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
  */
 export const baseOptions: BaseLayoutProps = {
   nav: {
-    title: "Documentation Platform",
+    title: process.env.FUMADOCS_TITLE || "Documentation Platform",
   },
   // see https://fumadocs.dev/docs/ui/navigation/links
-  links: [
-  {
-      text:'Home',
-      url:'/'
-  },
-  {
-      text:'Admin',
-      url:'/admin'
-  },
-  ],
-  githubUrl: "https://github.com/MFarabi619/fumadocs-payloadcms",
+  // Navigation links are now loaded dynamically from Payload CMS
+  links: [], // Will be populated dynamically
+  githubUrl: process.env.FUMADOCS_GITHUB_URL || "https://github.com/MiniSource/doc",
 };
+
+/**
+ * Get navigation options - either dynamic from Payload CMS or static fallback
+ */
+export async function getNavOptions(): Promise<BaseLayoutProps> {
+  const useDynamicNav = (process.env.FUMADOCS_USE_DYNAMIC_NAV || 'true').toLowerCase() === 'true';
+
+  if (useDynamicNav) {
+    try {
+      const navLinks = await getNavigationLinks();
+      return {
+        ...baseOptions,
+        links: navLinks,
+      };
+    } catch (error) {
+      console.warn('Failed to load dynamic navigation, using fallback:', error);
+      // Fallback to static navigation
+      return {
+        ...baseOptions,
+        links: [
+          { text: 'Home', url: '/' },
+          { text: 'Admin', url: '/admin' },
+        ],
+      };
+    }
+  } else {
+    // Use static navigation
+    return {
+      ...baseOptions,
+      links: [
+        { text: 'Home', url: '/' },
+        { text: 'Admin', url: '/admin' },
+      ],
+    };
+  }
+}

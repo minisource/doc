@@ -1,3 +1,4 @@
+import React from 'react';
 import { getPayload } from 'payload';
 import configPromise from '@/payload.config';
 import {
@@ -9,6 +10,7 @@ import {
 import { notFound } from 'next/navigation';
 import { compileMDX } from '@fumadocs/mdx-remote';
 import { getMDXComponents } from '@/mdx-components';
+import { processContentWithComponents, getAvailableComponents } from '@/lib/component-renderer';
 import type { Doc } from '@/payload-types';
 
 // Create MDX components without problematic imports
@@ -37,8 +39,28 @@ export default async function Page(props: {
   const doc = docs.docs[0] as Doc;
   if (!doc) notFound();
 
+  // Get available components for processing
+  const availableComponents = await getAvailableComponents();
+
+  // Process content with components
+  const processedContent = processContentWithComponents(doc.content, availableComponents);
+
+  // Convert processed content back to string for MDX compilation
+  // For now, we'll use a simple approach - convert the processed content to a basic format
+  let contentString = '';
+
+  if (typeof processedContent === 'string') {
+    contentString = processedContent;
+  } else if (React.isValidElement(processedContent)) {
+    // For React elements, we'll create a simple markdown-like representation
+    // This is a simplified approach - in production, you'd want more sophisticated processing
+    contentString = doc.content; // Fallback to original content for now
+  } else {
+    contentString = doc.content; // Fallback to original content
+  }
+
   const mdx = await compileMDX({
-    source: doc.content,
+    source: contentString,
     components: safeMDXComponents,
     mdxOptions: {
       baseUrl: process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000',
@@ -51,6 +73,8 @@ export default async function Page(props: {
       <DocsDescription>{doc.description || ''}</DocsDescription>
       <DocsBody>
         <mdx.body components={safeMDXComponents} />
+        {/* Render processed components directly if they couldn't be converted to MDX */}
+        {typeof processedContent !== 'string' && processedContent}
       </DocsBody>
     </DocsPage>
   );
