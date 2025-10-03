@@ -10,29 +10,7 @@ import type { BaseLayoutProps } from 'fumadocs-ui/layouts/shared';
  */
 export const baseOptions: BaseLayoutProps = {
   nav: {
-    title: (
-      <>
-        <picture>
-          <source srcSet="/fumadocs.svg" />
-          <Image
-            alt="Fumadocs Logo Symbol"
-            height={35}
-            src="/fumadocs.svg"
-            width={35}
-          />
-        </picture>
-        +
-        <picture>
-          <source srcSet="/payload-favicon.svg" />
-          <Image
-            alt="Payload Logo"
-            height={35}
-            src="/payload-favicon.svg"
-            width={35}
-          />
-        </picture>
-      </>
-    ),
+    title: "Documentation Platform",
   },
   // see https://fumadocs.dev/docs/ui/navigation/links
   links: [

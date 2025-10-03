@@ -16,7 +16,29 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <RootProvider>
+    <RootProvider
+      i18n={{
+        locale: 'en',
+        translations: {
+          search: 'Search documentation...',
+          searchNoResult: 'No results found',
+          toc: 'Table of Contents',
+          tocNoHeadings: 'No headings found',
+          lastUpdate: 'Last updated',
+          chooseLanguage: 'Choose language',
+          nextPage: 'Next page',
+          previousPage: 'Previous page',
+          chooseTheme: 'Choose theme',
+          editOnGithub: 'Edit on GitHub',
+        },
+        locales: [
+          { locale: 'en', name: 'English' },
+          { locale: 'es', name: 'Español' },
+          { locale: 'fr', name: 'Français' },
+          { locale: 'de', name: 'Deutsch' },
+        ],
+      }}
+    >
       <html lang="en" suppressHydrationWarning>
         <body className={inter.className}>
           {children}

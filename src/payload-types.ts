@@ -70,6 +70,7 @@ export interface Config {
     users: User;
     media: Media;
     docs: Doc;
+    tools: Tool;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -79,6 +80,7 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     media: MediaSelect<false> | MediaSelect<true>;
     docs: DocsSelect<false> | DocsSelect<true>;
+    tools: ToolsSelect<false> | ToolsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
@@ -88,7 +90,7 @@ export interface Config {
   };
   globals: {};
   globalsSelect: {};
-  locale: null;
+  locale: 'en' | 'es' | 'fr' | 'de';
   user: User & {
     collection: 'users';
   };
@@ -193,6 +195,32 @@ export interface Doc {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tools".
+ */
+export interface Tool {
+  id: number;
+  name: string;
+  description?: string | null;
+  type: 'utility' | 'admin' | 'content' | 'analytics';
+  enabled?: boolean | null;
+  /**
+   * Tool-specific configuration options
+   */
+  configuration?:
+    | {
+        [k: string]: unknown;
+      }
+    | unknown[]
+    | string
+    | number
+    | boolean
+    | null;
+  permissions?: ('admin' | 'editor' | 'author' | 'public')[] | null;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
@@ -209,6 +237,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'docs';
         value: number | Doc;
+      } | null)
+    | ({
+        relationTo: 'tools';
+        value: number | Tool;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -306,6 +338,20 @@ export interface DocsSelect<T extends boolean = true> {
   content?: T;
   order?: T;
   parent?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "tools_select".
+ */
+export interface ToolsSelect<T extends boolean = true> {
+  name?: T;
+  description?: T;
+  type?: T;
+  enabled?: T;
+  configuration?: T;
+  permissions?: T;
   updatedAt?: T;
   createdAt?: T;
 }

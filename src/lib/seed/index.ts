@@ -14,7 +14,7 @@ export async function seed({
   payload.logger.info("🌱 Seeding database...");
 
   await Promise.all(
-    ["users", "docs"].map(async (collection) => {
+    ["users", "docs", "tools"].map(async (collection) => {
       if (collection === "users") {
         await payload.db.deleteMany({
           collection: collection as "users",
@@ -24,11 +24,11 @@ export async function seed({
           },
         });
       } else {
-        await payload.db.deleteMany({collection: collection as "docs", req, where: {}});
+        await payload.db.deleteMany({collection: collection as any, req, where: {}});
       }
 
       if (payload.collections[collection as keyof typeof payload.collections].config.versions) {
-        await payload.db.deleteVersions({collection: collection as "users" | "docs", req, where: {}});
+        await payload.db.deleteVersions({collection: collection as any, req, where: {}});
       }
     })
   );
@@ -48,6 +48,7 @@ export async function seed({
     await seedUsers(payload, req);
     await seedMedia(payload);
     await seedDocs(payload);
+    await seedTools(payload);
   } catch (error) {
     payload.logger.error(
       `❌ Error seeding initial data: ${error instanceof Error ? error.message : "Unknown error"}`
@@ -239,6 +240,77 @@ Create a new user.
   }
 
   payload.logger.info("📄 Docs seeded!");
+}
+
+export async function seedTools(payload: Payload) {
+  payload.logger.info("🔧 Seeding tools...");
+
+  const tools = [
+    {
+      name: "Media Cleanup",
+      description: "Automatically remove unused media files older than 30 days",
+      type: "utility",
+      enabled: true,
+      permissions: ["admin"],
+      configuration: {
+        daysOld: 30,
+        autoRun: false,
+      },
+    },
+    {
+      name: "Search Index Rebuild",
+      description: "Rebuild the search index for documentation",
+      type: "utility",
+      enabled: true,
+      permissions: ["admin", "editor"],
+      configuration: {
+        batchSize: 100,
+      },
+    },
+    {
+      name: "Documentation Export",
+      description: "Export all documentation as JSON for backup or migration",
+      type: "utility",
+      enabled: true,
+      permissions: ["admin"],
+      configuration: {
+        includeMetadata: true,
+        format: "json",
+      },
+    },
+    {
+      name: "System Statistics",
+      description: "View system statistics and usage metrics",
+      type: "analytics",
+      enabled: true,
+      permissions: ["admin"],
+      configuration: {
+        refreshInterval: 300, // 5 minutes
+      },
+    },
+    {
+      name: "Content Validator",
+      description: "Validate documentation content for consistency and completeness",
+      type: "content",
+      enabled: false,
+      permissions: ["admin", "editor"],
+      configuration: {
+        checkLinks: true,
+        checkImages: true,
+        minWordCount: 50,
+      },
+    },
+  ];
+
+  for (const tool of tools) {
+    await payload.create({
+      collection: "tools",
+      data: tool as any,
+    });
+    payload.logger.info(`✅ Created tool: ${tool.name}`);
+  }
+
+  payload.logger.info("🔧 Tools seeded!");
 }
 
 export async function getOrUploadMedia(

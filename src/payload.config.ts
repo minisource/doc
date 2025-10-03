@@ -13,12 +13,16 @@ import {seed} from "./lib/seed";
 import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Docs } from './collections/Docs'
+import { Tools } from './collections/Tools'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
 
 export default buildConfig({
-  onInit: async (payload, req) => {
+  onInit: async (payload) => {
+    // Create a mock request for seeding operations
+    const mockReq = {} as any;
+
     const {totalDocs} = await payload.count({
       collection: "users",
       where: {
@@ -29,47 +33,67 @@ export default buildConfig({
     });
 
     if (!totalDocs) {
-      await seed({payload, req});
+      await seed({payload, req: mockReq});
     }
   },
   sharp,
   debug: true,
   defaultDepth: 3,
+  localization: {
+    locales: [
+      {
+        label: 'English',
+        code: 'en',
+      },
+      {
+        label: 'Español',
+        code: 'es',
+      },
+      {
+        label: 'Français',
+        code: 'fr',
+      },
+      {
+        label: 'Deutsch',
+        code: 'de',
+      },
+    ],
+    defaultLocale: 'en',
+    fallback: true,
+  },
   admin: {
-  autoLogin:
-    process.env.NODE_ENV === "development"
-      ? {
-          email: "test@gmail.com",
-          password: "test",
-          prefillOnly: true,
-        }
-      : false,
-    user: Users.slug,
-    importMap: {
-      baseDir: path.resolve(dirname),
-    },
-  },
-  collections: [Users, Media, Docs],
-  editor: lexicalEditor(),
-  secret: process.env.PAYLOAD_SECRET ?
-    process.env.PAYLOAD_SECRET :
-    process.env.NODE_ENV === 'development' && 'YOUR_SECRET_HERE',
-  typescript: {
-    outputFile: path.resolve(dirname, 'payload-types.ts'),
-  },
-  serverURL: process.env.NODE_ENV === "development" ? 'http://localhost:3000' : process.env.BASE_URL,
-  cors: process.env.CORS_WHITELIST_ORIGINS
-    ? process.env.CORS_WHITELIST_ORIGINS.split(",")
-    : ["http://localhost:3000"],
-  csrf: process.env.CSRF_WHITELIST_ORIGINS
-    ? process.env.CSRF_WHITELIST_ORIGINS.split(",")
-    : ["http://localhost:3000"],
-  db: sqliteAdapter({
-    client: {
-      url: process.env.DATABASE_URI || process.env.TURSO_DATABASE_URL || 'file:./sqlite.db',
-      authToken: process.env.AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN || '',
-    },
-  }),
+   autoLogin:
+     process.env.NODE_ENV === "development"
+       ? {
+           email: "test@gmail.com",
+           password: "test",
+           prefillOnly: true,
+         }
+       : false,
+     user: Users.slug,
+     importMap: {
+       baseDir: path.resolve(dirname),
+     },
+   },
+   collections: [Users, Media, Docs, Tools],
+   editor: lexicalEditor(),
+   secret: process.env.PAYLOAD_SECRET || 'YOUR_SECRET_HERE',
+   typescript: {
+     outputFile: path.resolve(dirname, 'payload-types.ts'),
+   },
+   serverURL: process.env.NODE_ENV === "development" ? 'http://localhost:3000' : process.env.BASE_URL,
+   cors: process.env.CORS_WHITELIST_ORIGINS
+     ? process.env.CORS_WHITELIST_ORIGINS.split(",")
+     : ["http://localhost:3000"],
+   csrf: process.env.CSRF_WHITELIST_ORIGINS
+     ? process.env.CSRF_WHITELIST_ORIGINS.split(",")
+     : ["http://localhost:3000"],
+   db: sqliteAdapter({
+     client: {
+       url: process.env.DATABASE_URI || process.env.TURSO_DATABASE_URL || 'file:./sqlite.db',
+       authToken: process.env.AUTH_TOKEN || process.env.TURSO_AUTH_TOKEN || '',
+     },
+   }),
   plugins: [
     vercelBlobStorage({
       enabled: process.env.NODE_ENV !== "development",
