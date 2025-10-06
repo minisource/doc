@@ -1,5 +1,5 @@
 import { readFileSync, readdirSync, existsSync } from 'fs'
-import { join } from 'path'
+import { join, relative } from 'path'
 import { getPayload } from 'payload'
 import config from '../payload.config'
 import 'dotenv/config'
@@ -26,6 +26,22 @@ function parseFrontmatter(content: string) {
   return { data, body }
 }
 
+function getAllMdxFiles(dir: string, baseDir: string = dir): string[] {
+  const files: string[] = []
+  const items = readdirSync(dir, { withFileTypes: true })
+
+  for (const item of items) {
+    const fullPath = join(dir, item.name)
+    if (item.isDirectory()) {
+      files.push(...getAllMdxFiles(fullPath, baseDir))
+    } else if (item.isFile() && item.name.endsWith('.mdx')) {
+      files.push(relative(baseDir, fullPath))
+    }
+  }
+
+  return files
+}
+
 async function syncDocs() {
   const payloadConfig = await config
   const payload = await getPayload({ config: payloadConfig })
@@ -38,7 +54,7 @@ async function syncDocs() {
     return
   }
 
-  const files = readdirSync(docsDir).filter(file => file.endsWith('.mdx'))
+  const files = getAllMdxFiles(docsDir)
 
   // Get all existing docs
   const existingDocs = await payload.find({
@@ -54,7 +70,7 @@ async function syncDocs() {
     const content = readFileSync(filePath, 'utf8')
     const { data, body } = parseFrontmatter(content)
 
-    const slug = file.replace('.mdx', '')
+    const slug = file.replace(/\.mdx$/, '')
 
     const docData = {
       slug,
@@ -86,6 +102,68 @@ async function syncDocs() {
       } catch (err) {
         console.log(`Skipped ${slug}, invalid data: ${(err as Error).message}`)
       }
+    }
+  }
+
+  // Sync meta.json files
+  const metaFiles: string[] = []
+  const items = readdirSync(docsDir, { withFileTypes: true })
+  for (const item of items) {
+    if (item.isDirectory()) {
+      const metaPath = join(docsDir, item.name, 'meta.json')
+      if (existsSync(metaPath)) {
+        metaFiles.push(item.name)
+      }
+    }
+  }
+
+  const existingMeta = await payload.find({
+    collection: 'meta',
+    limit: 1000
+  })
+
+  const existingMetaPaths = new Set(existingMeta.docs.map(doc => doc.path))
+
+  // Import or update meta
+  for (const path of metaFiles) {
+    const filePath = join(docsDir, path, 'meta.json')
+    const content = readFileSync(filePath, 'utf8')
+
+    if (existingMetaPaths.has(path)) {
+      const existing = existingMeta.docs.find(doc => doc.path === path)
+      if (existing && existing.content !== content) {
+        try {
+          await payload.update({
+            collection: 'meta',
+            id: existing.id,
+            data: { path, content }
+          })
+          console.log(`Updated meta ${path}`)
+        } catch (err) {
+          console.log(`Failed to update meta ${path}: ${(err as Error).message}`)
+        }
+      }
+    } else {
+      try {
+        await payload.create({
+          collection: 'meta',
+          data: { path, content }
+        })
+        console.log(`Imported meta ${path}`)
+      } catch (err) {
+        console.log(`Skipped meta ${path}, invalid data: ${(err as Error).message}`)
+      }
+    }
+  }
+
+  // Delete meta not in files
+  for (const meta of existingMeta.docs) {
+    if (!metaFiles.includes(meta.path)) {
+      await payload.delete({
+        collection: 'meta',
+        id: meta.id
+      })
+      console.log(`Deleted meta ${meta.path}`)
     }
   }
 

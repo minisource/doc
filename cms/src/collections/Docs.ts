@@ -1,6 +1,6 @@
 import type { CollectionConfig } from 'payload'
-import { writeFileSync, existsSync, mkdirSync, unlinkSync, readdirSync, readFileSync } from 'fs'
-import { join } from 'path'
+import { writeFileSync, existsSync, mkdirSync, unlinkSync, readdirSync, readFileSync, rmdirSync } from 'fs'
+import { join, dirname } from 'path'
 
 function parseFrontmatter(content: string) {
   const match = content.match(/^---\n([\s\S]*?)\n---\n([\s\S]*)$/)
@@ -22,6 +22,22 @@ function parseFrontmatter(content: string) {
   })
 
   return { data, body }
+}
+
+function removeEmptyDirs(dir: string) {
+  try {
+    const items = readdirSync(dir)
+    if (items.length === 0) {
+      rmdirSync(dir)
+      // Recursively check parent
+      const parent = dirname(dir)
+      if (parent !== dir) { // Avoid infinite loop
+        removeEmptyDirs(parent)
+      }
+    }
+  } catch (err) {
+    // Ignore
+  }
 }
 
 export const Docs: CollectionConfig = {
@@ -52,6 +68,7 @@ export const Docs: CollectionConfig = {
             mkdirSync(docsDir, { recursive: true })
           }
           const filePath = join(docsDir, `${doc.slug}.mdx`)
+          mkdirSync(dirname(filePath), { recursive: true })
           writeFileSync(filePath, doc.content, 'utf8')
         }
       },
@@ -62,6 +79,8 @@ export const Docs: CollectionConfig = {
         const filePath = join(process.cwd(), contentDir, 'docs', `${doc.slug}.mdx`)
         try {
           unlinkSync(filePath)
+          // Remove empty directories
+          removeEmptyDirs(dirname(filePath))
         } catch (err) {
           // File may not exist, ignore
         }
