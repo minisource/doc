@@ -1,0 +1,43 @@
+version: '3'
+
+services:
+  doc:
+    build:
+      context: ./doc
+      dockerfile: Dockerfile
+    ports:
+      - '3000:3000'
+    volumes:
+      - ./doc/content:/app/content
+    environment:
+      - NODE_ENV=production
+
+  cms:
+    build:
+      context: ./cms
+      dockerfile: Dockerfile
+    ports:
+      - '3001:3001'
+    volumes:
+      - ./doc/content:/home/node/app/content
+      - cms_node_modules:/home/node/app/node_modules
+    depends_on:
+      - mongo
+    environment:
+      - NODE_ENV=development
+    command: sh -c "corepack enable && corepack prepare pnpm@latest --activate && pnpm install && pnpm dev"
+
+  mongo:
+    image: mongo:latest
+    ports:
+      - '27017:27017'
+    command:
+      - --storageEngine=wiredTiger
+    volumes:
+      - mongo_data:/data/db
+    logging:
+      driver: none
+
+volumes:
+  mongo_data:
+  cms_node_modules:

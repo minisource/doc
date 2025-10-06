@@ -4,9 +4,10 @@ services:
   payload:
     image: node:18-alpine
     ports:
-      - '3000:3000'
+      - '3001:3001'
     volumes:
       - .:/home/node/app
+      - ../content:/home/node/app/content
       - node_modules:/home/node/app/node_modules
     working_dir: /home/node/app/
     command: sh -c "corepack enable && corepack prepare pnpm@latest --activate && pnpm install && pnpm dev"
