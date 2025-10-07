@@ -4,10 +4,10 @@
   "private": true,
   "scripts": {
     "build": "next build",
-    "dev": "next dev --turbo",
-    "start": "next start",
+    "dev": "npm run generate:api && next dev --turbo",
+    "start": "npm run generate:api && next start",
     "postinstall": "fumadocs-mdx",
-    "generate:api": "npx ts-node scripts/generate-api.ts"
+    "generate:api": "npx tsx scripts/generate-api.ts"
   },
   "dependencies": {
     "fumadocs-core": "^15.8.3",

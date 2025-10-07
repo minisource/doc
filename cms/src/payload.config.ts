@@ -11,6 +11,7 @@ import { Users } from './collections/Users'
 import { Media } from './collections/Media'
 import { Docs } from './collections/Docs'
 import { Meta } from './collections/Meta'
+import { ApiSpecs } from './collections/ApiSpecs'
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -25,7 +26,7 @@ export default buildConfig({
   routes: {
     admin: '/',
   },
-  collections: [Users, Media, Docs, Meta],
+  collections: [Users, Media, Docs, Meta, ApiSpecs],
   editor: lexicalEditor(),
   secret: process.env.PAYLOAD_SECRET || '',
   typescript: {

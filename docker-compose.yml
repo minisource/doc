@@ -11,6 +11,7 @@ services:
       - ./doc/content:/app/content
     environment:
       - NODE_ENV=production
+      - CMS_URL=http://cms:3001
 
   cms:
     build:
