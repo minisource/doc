@@ -1,0 +1,221 @@
+---
+title: Gateway Authentication
+description: JWT authentication and authorization in the API Gateway
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Authentication
+
+The API Gateway validates JWT tokens and extracts user context before forwarding requests to backend services.
+
+## How It Works
+
+```
+Client Request → Gateway → JWT Validation → Add Headers → Upstream Service
+       ↓              ↓           ↓              ↓              ↓
+  Authorization   Extract     Validate      X-User-ID      Process
+    Header        Token       Claims       X-Tenant-ID     Request
+```
+
+## Token Validation
+
+The gateway expects tokens in the `Authorization` header:
+
+```http
+GET /api/v1/users/me HTTP/1.1
+Host: api.example.com
+Authorization: Bearer eyJhbGciOiJIUzI1NiIs...
+```
+
+### JWT Claims
+
+The gateway extracts these claims from valid tokens:
+
+```json
+{
+  "user_id": "550e8400-e29b-41d4-a716-446655440000",
+  "tenant_id": "tenant-123",
+  "email": "user@example.com",
+  "roles": ["admin", "user"],
+  "exp": 1704067200,
+  "iat": 1704063600
+}
+```
+
+## Public Routes
+
+Public routes bypass authentication. Configure in `routes.yaml`:
+
+```yaml
+routes:
+  - path: /api/v1/auth/login
+    service: auth
+    methods: [POST]
+    public: true  # No authentication required
+
+  - path: /api/v1/auth/register
+    service: auth
+    methods: [POST]
+    public: true
+```
+
+### Default Public Routes
+
+| Path | Description |
+|------|-------------|
+| `/health` | Health check |
+| `/ready` | Readiness check |
+| `/live` | Liveness probe |
+| `/metrics` | Prometheus metrics |
+| `/api/v1/auth/login` | User login |
+| `/api/v1/auth/register` | User registration |
+| `/api/v1/auth/refresh` | Token refresh |
+| `/api/v1/auth/forgot-password` | Password reset |
+| `/api/v1/auth/verify-email` | Email verification |
+
+## Context Propagation
+
+After validation, user context is added to request headers:
+
+```go
+// Headers added by gateway
+c.Request().Header.Set("X-User-ID", claims.UserID)
+c.Request().Header.Set("X-Tenant-ID", claims.TenantID)
+c.Request().Header.Set("X-User-Email", claims.Email)
+c.Request().Header.Set("X-User-Roles", strings.Join(claims.Roles, ","))
+```
+
+Backend services can read these headers:
+
+<Tabs items={['Go', 'Node.js', 'Python']}>
+  <Tab value="Go">
+    ```go
+    func handler(c *fiber.Ctx) error {
+        userID := c.Get("X-User-ID")
+        tenantID := c.Get("X-Tenant-ID")
+        roles := strings.Split(c.Get("X-User-Roles"), ",")
+        
+        // Use in business logic
+        return c.JSON(fiber.Map{"user": userID})
+    }
+    ```
+  </Tab>
+  <Tab value="Node.js">
+    ```javascript
+    app.get('/api/users/me', (req, res) => {
+      const userId = req.headers['x-user-id'];
+      const tenantId = req.headers['x-tenant-id'];
+      const roles = req.headers['x-user-roles']?.split(',') || [];
+      
+      res.json({ userId, tenantId, roles });
+    });
+    ```
+  </Tab>
+  <Tab value="Python">
+    ```python
+    @app.get("/api/users/me")
+    async def get_user(request: Request):
+        user_id = request.headers.get("X-User-ID")
+        tenant_id = request.headers.get("X-Tenant-ID")
+        roles = request.headers.get("X-User-Roles", "").split(",")
+        
+        return {"user_id": user_id, "roles": roles}
+    ```
+  </Tab>
+</Tabs>
+
+## Multi-Tenancy
+
+The gateway extracts tenant ID from multiple sources (in order):
+
+1. **JWT Claims**: `tenant_id` claim in token
+2. **Header**: `X-Tenant-ID` header (for service-to-service calls)
+3. **Subdomain**: `tenant1.api.example.com` → `tenant1`
+
+```go
+// TenantExtractor middleware
+func TenantExtractor() fiber.Handler {
+    return func(c *fiber.Ctx) error {
+        var tenantID string
+
+        // 1. From JWT claims
+        if tid := c.Locals("tenant_id"); tid != nil {
+            tenantID = tid.(string)
+        }
+
+        // 2. From header
+        if tenantID == "" {
+            tenantID = c.Get("X-Tenant-ID")
+        }
+
+        // 3. From subdomain
+        if tenantID == "" {
+            host := c.Hostname()
+            parts := strings.Split(host, ".")
+            if len(parts) >= 3 {
+                tenantID = parts[0]
+            }
+        }
+
+        c.Locals("tenant_id", tenantID)
+        return c.Next()
+    }
+}
+```
+
+## Error Responses
+
+### Missing Token
+
+```json
+{
+  "error": "unauthorized",
+  "message": "Missing authorization header"
+}
+```
+
+### Invalid Token
+
+```json
+{
+  "error": "unauthorized",
+  "message": "Invalid token"
+}
+```
+
+### Expired Token
+
+```json
+{
+  "error": "unauthorized",
+  "message": "Token expired"
+}
+```
+
+## Role-Based Access
+
+The gateway can enforce role requirements:
+
+```go
+// Require admin role for specific routes
+app.Use("/api/v1/admin/*", middleware.RequireRoles("admin"))
+```
+
+<Callout type="info">
+For fine-grained authorization, handle permission checks in your backend services using the `X-User-Roles` header.
+</Callout>
+
+## Configuration
+
+```bash
+# JWT Configuration
+JWT_SECRET=your-super-secret-key  # Must match auth service
+JWT_ACCESS_EXPIRES=15m
+JWT_REFRESH_EXPIRES=168h
+```
+
+<Callout type="warning">
+The `JWT_SECRET` must be identical across the gateway and auth service for token validation to work.
+</Callout>

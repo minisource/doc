@@ -1,0 +1,126 @@
+---
+title: API Gateway
+description: High-performance API Gateway for MiniSource microservices
+icon: Globe
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+# API Gateway
+
+The API Gateway serves as the single entry point for all client requests, providing routing, authentication, rate limiting, and observability for the MiniSource platform.
+
+## Features
+
+<Cards>
+  <Card title="Reverse Proxy" icon="ArrowRight">
+    Routes requests to auth, notifier, and other backend services
+  </Card>
+  <Card title="JWT Authentication" icon="Key">
+    Validates tokens and propagates user context to downstream services
+  </Card>
+  <Card title="Rate Limiting" icon="Shield">
+    Redis-based rate limiting with per-route configuration
+  </Card>
+  <Card title="Circuit Breaker" icon="Zap">
+    Protects downstream services with hystrix-style circuit breakers
+  </Card>
+</Cards>
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                         API Gateway                              │
+│  ┌─────────┐  ┌──────────┐  ┌────────┐  ┌────────────────────┐  │
+│  │ Rate    │→ │   Auth   │→ │Circuit │→ │   Reverse Proxy    │  │
+│  │ Limiter │  │Middleware│  │Breaker │  │                    │  │
+│  └─────────┘  └──────────┘  └────────┘  └────────────────────┘  │
+│       ↓            ↓             ↓               ↓               │
+│  ┌─────────────────────────────────────────────────────────────┐│
+│  │              Observability (Metrics, Tracing, Logs)         ││
+│  └─────────────────────────────────────────────────────────────┘│
+└─────────────────────────────────────────────────────────────────┘
+                              │
+         ┌────────────────────┼────────────────────┐
+         ▼                    ▼                    ▼
+   ┌───────────┐        ┌───────────┐       ┌───────────┐
+   │   Auth    │        │ Notifier  │       │   Redis   │
+   │  Service  │        │  Service  │       │  (Cache)  │
+   └───────────┘        └───────────┘       └───────────┘
+```
+
+## Quick Start
+
+<Tabs items={['Docker', 'Local']}>
+  <Tab value="Docker">
+    ```bash
+    # Start with docker-compose
+    cd gateway
+    docker-compose up -d
+
+    # Or development stack with monitoring
+    docker-compose -f docker-compose.dev.yml up -d
+    ```
+  </Tab>
+  <Tab value="Local">
+    ```bash
+    # Install dependencies
+    cd gateway
+    make deps
+
+    # Run gateway
+    make run
+
+    # Or with hot reload
+    make dev
+    ```
+  </Tab>
+</Tabs>
+
+## Configuration
+
+The gateway is configured via environment variables:
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `SERVER_PORT` | 8080 | Gateway listen port |
+| `AUTH_SERVICE_URL` | http://localhost:5000 | Auth service URL |
+| `NOTIFIER_SERVICE_URL` | http://localhost:5001 | Notifier service URL |
+| `REDIS_HOST` | localhost | Redis host for rate limiting |
+| `JWT_SECRET` | - | JWT signing secret (must match auth service) |
+| `RATE_LIMIT_RPS` | 100 | Default requests per second |
+| `CIRCUIT_ENABLED` | true | Enable circuit breaker |
+| `TRACING_ENABLED` | true | Enable distributed tracing |
+
+## Gateway Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Health check |
+| `GET /ready` | Readiness check (includes downstream services) |
+| `GET /live` | Liveness probe for Kubernetes |
+| `GET /metrics` | Prometheus metrics |
+| `GET /circuit-breakers` | Circuit breaker states |
+
+## Documentation
+
+<Cards>
+  <Card title="Routing" href="/docs/gateway/routing">
+    Configure routes and service mappings
+  </Card>
+  <Card title="Authentication" href="/docs/gateway/authentication">
+    JWT validation and public routes
+  </Card>
+  <Card title="Rate Limiting" href="/docs/gateway/rate-limiting">
+    Configure rate limits per route
+  </Card>
+  <Card title="Circuit Breaker" href="/docs/gateway/circuit-breaker">
+    Protect services from cascading failures
+  </Card>
+  <Card title="Observability" href="/docs/gateway/observability">
+    Metrics, tracing, and logging
+  </Card>
+</Cards>

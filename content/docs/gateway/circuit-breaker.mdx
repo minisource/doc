@@ -1,0 +1,244 @@
+---
+title: Circuit Breaker
+description: Protect services from cascading failures with circuit breakers
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Circuit Breaker
+
+The API Gateway implements the circuit breaker pattern to prevent cascading failures when downstream services are unhealthy.
+
+## How It Works
+
+```
+         ┌─────────────┐
+         │   CLOSED    │ ← Normal operation
+         └──────┬──────┘
+                │ Failures exceed threshold
+                ▼
+         ┌─────────────┐
+         │    OPEN     │ ← Reject all requests
+         └──────┬──────┘
+                │ Timeout expires
+                ▼
+         ┌─────────────┐
+         │  HALF-OPEN  │ ← Allow limited requests
+         └──────┬──────┘
+                │ Success → CLOSED
+                │ Failure → OPEN
+```
+
+### States
+
+| State | Behavior |
+|-------|----------|
+| **Closed** | Normal operation, requests flow through |
+| **Open** | All requests immediately fail, protecting the service |
+| **Half-Open** | Limited requests allowed to test if service recovered |
+
+## Configuration
+
+```bash
+# Environment variables
+CIRCUIT_ENABLED=true
+CIRCUIT_MAX_REQUESTS=5       # Requests allowed in half-open state
+CIRCUIT_INTERVAL=60s         # Time window for failure counting
+CIRCUIT_TIMEOUT=30s          # Time before transitioning from open to half-open
+CIRCUIT_FAILURE_THRESHOLD=5  # Failures before opening circuit
+```
+
+### Per-Route Configuration
+
+Enable/disable circuit breaker per route:
+
+```yaml
+routes:
+  - path: /api/v1/auth/login
+    service: auth
+    circuitBreaker: true   # Enable for this route
+
+  - path: /api/v1/static
+    service: cdn
+    circuitBreaker: false  # Disable for static content
+```
+
+## Circuit Breaker Behavior
+
+### Opening the Circuit
+
+The circuit opens when:
+- Total requests ≥ `CIRCUIT_FAILURE_THRESHOLD`
+- Failure ratio ≥ 50%
+
+```go
+ReadyToTrip: func(counts gobreaker.Counts) bool {
+    failureRatio := float64(counts.TotalFailures) / float64(counts.Requests)
+    return counts.Requests >= threshold && failureRatio >= 0.5
+}
+```
+
+### What Counts as Failure
+
+- HTTP 5xx responses from upstream
+- Connection timeouts
+- Network errors
+
+HTTP 4xx responses (client errors) do NOT count as failures.
+
+## Error Responses
+
+### Circuit Open
+
+When the circuit is open, requests receive `503 Service Unavailable`:
+
+```json
+{
+  "error": "service_unavailable",
+  "message": "Service temporarily unavailable, please try again later",
+  "service": "auth"
+}
+```
+
+### Circuit Half-Open (Too Many Requests)
+
+During recovery testing:
+
+```json
+{
+  "error": "too_many_requests",
+  "message": "Service is recovering, please try again",
+  "service": "auth"
+}
+```
+
+## Monitoring
+
+### Circuit Breaker Status Endpoint
+
+```bash
+GET /circuit-breakers
+```
+
+Response:
+
+```json
+{
+  "states": {
+    "auth": "closed",
+    "notifier": "open"
+  }
+}
+```
+
+### Prometheus Metrics
+
+```
+# Circuit breaker state (0=closed, 1=half-open, 2=open)
+gateway_circuit_breaker_state{service="auth"} 0
+gateway_circuit_breaker_state{service="notifier"} 2
+
+# Upstream errors
+gateway_upstream_errors_total{service="auth", error_type="5xx"} 15
+```
+
+### Grafana Dashboard Query
+
+```promql
+# Alert when circuit opens
+gateway_circuit_breaker_state > 0
+
+# Error rate by service
+rate(gateway_upstream_errors_total[5m])
+```
+
+## Retry Logic
+
+The gateway can retry failed requests before triggering the circuit:
+
+```yaml
+routes:
+  - path: /api/v1/users
+    service: auth
+    circuitBreaker: true
+    retry:
+      maxAttempts: 3
+      waitTime: 100ms   # Exponential backoff
+```
+
+Retry behavior:
+- Only retries on 5xx errors
+- Uses exponential backoff
+- Max wait time capped at 30 seconds
+
+```go
+// Exponential backoff
+sleepTime := waitTime * time.Duration(1<<attempt)
+if sleepTime > rm.MaxWaitTime {
+    sleepTime = rm.MaxWaitTime
+}
+```
+
+## Best Practices
+
+### Service-Specific Thresholds
+
+Different services may need different thresholds:
+
+```go
+// High-traffic service - more lenient
+authBreaker := gobreaker.Settings{
+    MaxRequests:  10,
+    Interval:     60 * time.Second,
+    Timeout:      30 * time.Second,
+}
+
+// Low-traffic service - stricter
+reportBreaker := gobreaker.Settings{
+    MaxRequests:  3,
+    Interval:     120 * time.Second,
+    Timeout:      60 * time.Second,
+}
+```
+
+### Fallback Responses
+
+<Callout type="info">
+Consider implementing fallback responses for critical endpoints when the circuit is open.
+</Callout>
+
+```go
+if err == gobreaker.ErrOpenState {
+    // Return cached response or default
+    return c.JSON(getCachedResponse(c.Path()))
+}
+```
+
+### Health Checks
+
+The gateway periodically checks service health:
+
+```go
+// Health check every 30 seconds
+serviceProxy.StartHealthChecks(30 * time.Second)
+```
+
+If a service is unhealthy, the circuit may preemptively open.
+
+## Alerting
+
+Set up alerts for circuit breaker events:
+
+```yaml
+# Prometheus alerting rule
+groups:
+  - name: gateway
+    rules:
+      - alert: CircuitBreakerOpen
+        expr: gateway_circuit_breaker_state > 0
+        for: 1m
+        labels:
+          severity: warning
+        annotations:
+          summary: "Circuit breaker open for {{ $labels.service }}"
+```

@@ -1,0 +1,12 @@
+{
+  "title": "Gateway",
+  "description": "API Gateway documentation",
+  "pages": [
+    "index",
+    "routing",
+    "authentication",
+    "rate-limiting",
+    "circuit-breaker",
+    "observability"
+  ]
+}

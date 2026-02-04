@@ -1,0 +1,262 @@
+---
+title: Gateway Observability
+description: Metrics, tracing, and logging in the API Gateway
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Observability
+
+The API Gateway provides comprehensive observability through Prometheus metrics, distributed tracing, and structured logging.
+
+## Prometheus Metrics
+
+### Available Metrics
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `gateway_http_requests_total` | Counter | method, path, service, status | Total HTTP requests |
+| `gateway_http_request_duration_seconds` | Histogram | method, path, service | Request latency |
+| `gateway_http_request_size_bytes` | Histogram | method, path | Request body size |
+| `gateway_http_response_size_bytes` | Histogram | method, path | Response body size |
+| `gateway_active_connections` | Gauge | - | Current active connections |
+| `gateway_circuit_breaker_state` | Gauge | service | Circuit breaker state |
+| `gateway_rate_limit_exceeded_total` | Counter | path | Rate limit violations |
+| `gateway_upstream_errors_total` | Counter | service, error_type | Upstream errors |
+| `gateway_upstream_latency_seconds` | Histogram | service | Upstream service latency |
+
+### Metrics Endpoint
+
+```bash
+GET /metrics
+```
+
+Example output:
+
+```
+# HELP gateway_http_requests_total Total number of HTTP requests
+# TYPE gateway_http_requests_total counter
+gateway_http_requests_total{method="GET",path="/api/v1/users",service="auth",status="200"} 1542
+gateway_http_requests_total{method="POST",path="/api/v1/auth/login",service="auth",status="200"} 892
+gateway_http_requests_total{method="POST",path="/api/v1/auth/login",service="auth",status="401"} 47
+
+# HELP gateway_http_request_duration_seconds HTTP request duration in seconds
+# TYPE gateway_http_request_duration_seconds histogram
+gateway_http_request_duration_seconds_bucket{method="GET",path="/api/v1/users",service="auth",le="0.01"} 1200
+gateway_http_request_duration_seconds_bucket{method="GET",path="/api/v1/users",service="auth",le="0.1"} 1500
+```
+
+### Grafana Dashboards
+
+<Tabs items={['Request Rate', 'Latency', 'Errors']}>
+  <Tab value="Request Rate">
+    ```promql
+    # Requests per second
+    rate(gateway_http_requests_total[1m])
+
+    # By service
+    sum by (service) (rate(gateway_http_requests_total[1m]))
+
+    # By status code
+    sum by (status) (rate(gateway_http_requests_total[1m]))
+    ```
+  </Tab>
+  <Tab value="Latency">
+    ```promql
+    # P95 latency
+    histogram_quantile(0.95, 
+      rate(gateway_http_request_duration_seconds_bucket[5m])
+    )
+
+    # P99 by service
+    histogram_quantile(0.99, 
+      sum by (service, le) (
+        rate(gateway_http_request_duration_seconds_bucket[5m])
+      )
+    )
+    ```
+  </Tab>
+  <Tab value="Errors">
+    ```promql
+    # Error rate (5xx)
+    sum(rate(gateway_http_requests_total{status=~"5.."}[5m])) 
+    / sum(rate(gateway_http_requests_total[5m]))
+
+    # Upstream errors by service
+    rate(gateway_upstream_errors_total[5m])
+    ```
+  </Tab>
+</Tabs>
+
+## Distributed Tracing
+
+### Configuration
+
+```bash
+TRACING_ENABLED=true
+SERVICE_NAME=minisource-gateway
+OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+TRACING_SAMPLE_RATE=1.0   # 1.0 = 100% sampling
+```
+
+### Trace Context Propagation
+
+The gateway automatically propagates trace context:
+
+```
+Client Request                         Gateway                           Backend
+     │                                    │                                  │
+     │─────── traceparent header ────────►│                                  │
+     │                                    │──── traceparent + baggage ──────►│
+     │                                    │                                  │
+     │◄─────────── Response ──────────────│◄────────── Response ─────────────│
+```
+
+### Span Attributes
+
+Each request creates a span with attributes:
+
+| Attribute | Description |
+|-----------|-------------|
+| `http.method` | HTTP method |
+| `http.route` | Route pattern |
+| `http.url` | Full URL |
+| `http.status_code` | Response status |
+| `http.user_agent` | Client user agent |
+| `request.id` | Unique request ID |
+| `tenant.id` | Tenant identifier |
+| `user.id` | Authenticated user ID |
+| `upstream.service` | Target backend service |
+
+### Jaeger UI
+
+Access traces at `http://localhost:16686`:
+
+```bash
+# Start development stack with Jaeger
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+## Structured Logging
+
+### Log Format
+
+Logs are output in JSON format:
+
+```json
+{
+  "level": "INFO",
+  "time": "2024-01-15T10:30:00Z",
+  "msg": "HTTP Request",
+  "method": "GET",
+  "path": "/api/v1/users",
+  "status": 200,
+  "duration_ms": 45,
+  "ip": "192.168.1.100",
+  "request_id": "550e8400-e29b-41d4-a716-446655440000",
+  "user_id": "user-123",
+  "tenant_id": "tenant-abc",
+  "service": "auth"
+}
+```
+
+### Configuration
+
+```bash
+LOG_LEVEL=info    # debug, info, warn, error
+LOG_FORMAT=json   # json or text
+```
+
+### Log Levels
+
+| Level | When Used |
+|-------|-----------|
+| `debug` | Detailed debugging information |
+| `info` | Normal operation, requests, responses |
+| `warn` | 4xx errors, rate limits, warnings |
+| `error` | 5xx errors, failures, panics |
+
+### Request Logging
+
+Every request is logged with context:
+
+```go
+logFn("HTTP Request",
+    "method", c.Method(),
+    "path", c.Path(),
+    "status", status,
+    "duration_ms", duration.Milliseconds(),
+    "ip", c.IP(),
+    "request_id", requestID,
+    "user_id", userID,
+    "tenant_id", tenantID,
+    "service", service,
+)
+```
+
+## Request ID
+
+Every request gets a unique ID for correlation:
+
+```go
+// Generated or extracted from X-Request-ID header
+requestID := c.Get("X-Request-ID")
+if requestID == "" {
+    requestID = uuid.New().String()
+}
+```
+
+Include in error responses and logs for debugging:
+
+```json
+{
+  "error": "internal_server_error",
+  "message": "An unexpected error occurred",
+  "request_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+## Development Stack
+
+Start the complete observability stack:
+
+```bash
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+| Service | URL | Description |
+|---------|-----|-------------|
+| Gateway | http://localhost:8080 | API Gateway |
+| Jaeger | http://localhost:16686 | Distributed tracing UI |
+| Prometheus | http://localhost:9090 | Metrics & queries |
+| Grafana | http://localhost:3001 | Dashboards (admin/admin) |
+
+## Alerting Examples
+
+```yaml
+# Prometheus alerting rules
+groups:
+  - name: gateway
+    rules:
+      - alert: HighErrorRate
+        expr: |
+          sum(rate(gateway_http_requests_total{status=~"5.."}[5m])) 
+          / sum(rate(gateway_http_requests_total[5m])) > 0.05
+        for: 5m
+        labels:
+          severity: critical
+        annotations:
+          summary: "High error rate in gateway"
+          
+      - alert: HighLatency
+        expr: |
+          histogram_quantile(0.95, 
+            rate(gateway_http_request_duration_seconds_bucket[5m])
+          ) > 2
+        for: 5m
+        labels:
+          severity: warning
+        annotations:
+          summary: "High P95 latency in gateway"
+```

@@ -1,0 +1,190 @@
+---
+title: Gateway Routing
+description: Configure API Gateway routing and service mappings
+---
+
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Routing Configuration
+
+The API Gateway routes incoming requests to backend services based on path patterns. Routes are defined in `config/routes.yaml` or use sensible defaults.
+
+## Route Structure
+
+Each route defines:
+
+- **path**: URL pattern to match
+- **service**: Target backend service
+- **methods**: Allowed HTTP methods
+- **public**: Whether route requires authentication
+- **circuitBreaker**: Enable circuit breaker protection
+- **rateLimit**: Per-route rate limiting
+
+## Default Routes
+
+### Auth Service Routes
+
+| Path | Methods | Public | Description |
+|------|---------|--------|-------------|
+| `/api/v1/auth/login` | POST | ✅ | User login |
+| `/api/v1/auth/register` | POST | ✅ | User registration |
+| `/api/v1/auth/refresh` | POST | ✅ | Token refresh |
+| `/api/v1/auth/verify-email` | POST, GET | ✅ | Email verification |
+| `/api/v1/auth/forgot-password` | POST | ✅ | Password reset request |
+| `/api/v1/auth/reset-password` | POST | ✅ | Password reset |
+| `/api/v1/auth/*` | ALL | ❌ | Protected auth routes |
+| `/api/v1/users/*` | ALL | ❌ | User management |
+| `/api/v1/roles/*` | ALL | ❌ | Role management |
+| `/api/v1/permissions/*` | ALL | ❌ | Permission management |
+
+### Notifier Service Routes
+
+| Path | Methods | Public | Description |
+|------|---------|--------|-------------|
+| `/api/v1/notifications/*` | ALL | ❌ | Notification management |
+| `/api/v1/templates/*` | ALL | ❌ | Template management |
+| `/api/v1/preferences/*` | ALL | ❌ | User preferences |
+
+## Custom Routes Configuration
+
+<Tabs items={['YAML', 'Programmatic']}>
+  <Tab value="YAML">
+    Create `config/routes.yaml`:
+
+    ```yaml
+    routes:
+      - path: /api/v1/auth/login
+        service: auth
+        methods: [POST]
+        public: true
+        circuitBreaker: true
+        rateLimit:
+          requestsPerSec: 10
+          burstSize: 20
+
+      - path: /api/v1/users
+        service: auth
+        methods: [GET, POST, PUT, DELETE]
+        public: false
+        circuitBreaker: true
+
+      - path: /api/v1/custom
+        service: custom-service
+        stripPrefix: true  # Removes /api/v1/custom from upstream request
+        methods: [GET, POST]
+        public: false
+        timeout: 60s
+        retry:
+          maxAttempts: 3
+          waitTime: 100ms
+    ```
+  </Tab>
+  <Tab value="Programmatic">
+    Routes can be added programmatically in `config/routes.go`:
+
+    ```go
+    func DefaultRoutes() *RouteConfig {
+        return &RouteConfig{
+            Routes: []Route{
+                {
+                    Path:           "/api/v1/custom",
+                    Service:        "custom-service",
+                    StripPrefix:    true,
+                    Methods:        []string{"GET", "POST"},
+                    Public:         false,
+                    CircuitBreaker: true,
+                    RateLimit: &RouteLimit{
+                        RequestsPerSec: 50,
+                        BurstSize:      100,
+                    },
+                },
+            },
+        }
+    }
+    ```
+  </Tab>
+</Tabs>
+
+## Path Matching
+
+Routes are matched using prefix matching:
+
+```
+Request: GET /api/v1/users/123/profile
+Matches: /api/v1/users (prefix match)
+```
+
+<Callout type="info">
+More specific routes take precedence. `/api/v1/auth/login` matches before `/api/v1/auth/*`.
+</Callout>
+
+## Strip Prefix
+
+When `stripPrefix: true`, the matched path is removed before forwarding:
+
+```yaml
+- path: /api/v1/legacy
+  service: legacy-service
+  stripPrefix: true
+```
+
+| Incoming | Upstream |
+|----------|----------|
+| `/api/v1/legacy/users` | `/users` |
+| `/api/v1/legacy/orders/123` | `/orders/123` |
+
+## Adding New Services
+
+<Callout type="warning">
+When adding a new service, update both the routes and the service configuration.
+</Callout>
+
+1. Add service to `config/config.go`:
+
+```go
+type ServicesConfig struct {
+    Auth     ServiceConfig
+    Notifier ServiceConfig
+    Custom   ServiceConfig  // New service
+}
+```
+
+2. Initialize in `internal/proxy/proxy.go`:
+
+```go
+proxy.services["custom"] = &ServiceClient{
+    Name:       "custom",
+    URL:        cfg.Custom.URL,
+    HealthPath: cfg.Custom.HealthPath,
+    Client: &fasthttp.Client{
+        MaxConnsPerHost: cfg.Custom.MaxConnsPerHost,
+        ReadTimeout:     cfg.Custom.Timeout,
+    },
+}
+```
+
+3. Add routes in `config/routes.yaml`:
+
+```yaml
+- path: /api/v1/custom
+  service: custom
+  methods: [GET, POST, PUT, DELETE]
+  public: false
+  circuitBreaker: true
+```
+
+## Header Propagation
+
+The gateway automatically propagates these headers to upstream services:
+
+| Header | Source | Description |
+|--------|--------|-------------|
+| `X-Request-ID` | Generated | Unique request identifier |
+| `X-User-ID` | JWT Claims | Authenticated user ID |
+| `X-Tenant-ID` | JWT/Header | Tenant identifier |
+| `X-User-Email` | JWT Claims | User email |
+| `X-User-Roles` | JWT Claims | Comma-separated roles |
+| `X-Forwarded-For` | Client IP | Original client IP |
+| `X-Forwarded-Host` | Request | Original host header |
+| `X-Forwarded-Proto` | Request | Original protocol (http/https) |
