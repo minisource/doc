@@ -1,0 +1,99 @@
+---
+title: Log Service
+description: Centralized logging microservice for the Minisource platform
+---
+
+# Log Service
+
+The Log Service provides centralized log ingestion, storage, querying, and alerting capabilities for all Minisource microservices.
+
+## Overview
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Log Service (Port 5002)                  │
+├─────────────────────────────────────────────────────────────┤
+│  ┌───────────┐  ┌───────────┐  ┌───────────┐  ┌──────────┐ │
+│  │  Ingest   │  │   Query   │  │   Stats   │  │  Alerts  │ │
+│  │  Handler  │  │  Handler  │  │  Handler  │  │  Handler │ │
+│  └─────┬─────┘  └─────┬─────┘  └─────┬─────┘  └────┬─────┘ │
+│        │              │              │             │        │
+│  ┌─────┴──────────────┴──────────────┴─────────────┴─────┐ │
+│  │                    Log Service                         │ │
+│  │  • Buffered batch writes                               │ │
+│  │  • Query caching (Redis)                               │ │
+│  │  • Alert evaluation                                    │ │
+│  │  • Retention cleanup                                   │ │
+│  └─────────────────────────┬─────────────────────────────┘ │
+└────────────────────────────┼────────────────────────────────┘
+                             │
+              ┌──────────────┼──────────────┐
+              │              │              │
+       ┌──────┴──────┐ ┌─────┴─────┐ ┌──────┴──────┐
+       │  PostgreSQL │ │   Redis   │ │   Jaeger    │
+       │  (Storage)  │ │  (Cache)  │ │  (Tracing)  │
+       └─────────────┘ └───────────┘ └─────────────┘
+```
+
+## Key Features
+
+| Feature | Description |
+|---------|-------------|
+| **High-throughput Ingestion** | Single and batch log ingestion APIs |
+| **Flexible Querying** | Filter by service, level, time range, trace ID |
+| **Distributed Tracing** | Correlation with OpenTelemetry trace IDs |
+| **Multi-tenancy** | Tenant isolation for log data |
+| **Retention Policies** | Per-tenant configurable retention |
+| **Alerting** | Threshold-based alerting rules |
+| **Real-time Streaming** | SSE-based log streaming |
+| **Storage Optimization** | PostgreSQL with table partitioning |
+
+## Quick Start
+
+### Docker Compose
+
+```bash
+cd log
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+### Local Development
+
+```bash
+cd log
+make run
+```
+
+The service will be available at `http://localhost:5002`.
+
+## Configuration
+
+| Environment Variable | Description | Default |
+|---------------------|-------------|---------|
+| `SERVER_PORT` | HTTP server port | `5002` |
+| `POSTGRES_HOST` | PostgreSQL host | `localhost` |
+| `POSTGRES_PORT` | PostgreSQL port | `5432` |
+| `POSTGRES_USER` | PostgreSQL user | `log_user` |
+| `POSTGRES_PASSWORD` | PostgreSQL password | - |
+| `POSTGRES_DB` | PostgreSQL database | `log_db` |
+| `REDIS_HOST` | Redis host | `localhost` |
+| `REDIS_PORT` | Redis port | `6379` |
+| `LOG_RETENTION_DAYS` | Default log retention | `30` |
+| `LOG_MAX_SIZE_GB` | Maximum storage size | `50` |
+
+## Log Levels
+
+| Level | Description |
+|-------|-------------|
+| `DEBUG` | Detailed debugging information |
+| `INFO` | General informational messages |
+| `WARN` | Warning messages |
+| `ERROR` | Error conditions |
+| `FATAL` | Critical errors causing service failure |
+
+## Next Steps
+
+- [Log Ingestion](/docs/log/ingestion) - Learn how to send logs
+- [Log Querying](/docs/log/querying) - Search and filter logs
+- [Retention Policies](/docs/log/retention) - Configure log retention
+- [Alerting](/docs/log/alerting) - Set up log-based alerts

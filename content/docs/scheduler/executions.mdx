@@ -1,0 +1,256 @@
+---
+title: Executions & History
+description: Monitoring job executions and analyzing performance
+---
+
+# Executions & History
+
+The Scheduler service maintains detailed records of every job execution, enabling monitoring, debugging, and performance analysis.
+
+## Execution Lifecycle
+
+```
+┌──────────────┐     ┌───────────┐     ┌─────────────┐
+│   Pending    │────▶│  Running  │────▶│  Completed  │
+└──────────────┘     └───────────┘     └─────────────┘
+                           │
+                           ▼
+                     ┌───────────┐     ┌───────────┐
+                     │  Retrying │────▶│  Failed   │
+                     └───────────┘     └───────────┘
+                           │
+                           ▼
+                     ┌───────────┐
+                     │ Cancelled │
+                     └───────────┘
+```
+
+### Execution Statuses
+
+| Status | Description |
+|--------|-------------|
+| `pending` | Scheduled, waiting for execution |
+| `running` | Currently being executed by a worker |
+| `completed` | Successfully completed |
+| `failed` | Failed after all retry attempts |
+| `retrying` | Failed but will be retried |
+| `cancelled` | Manually cancelled |
+| `timeout` | Exceeded timeout duration |
+
+## Execution Record Structure
+
+```typescript
+interface JobExecution {
+  id: string;           // Execution UUID
+  job_id: string;       // Parent job UUID
+  tenant_id: string;    // Tenant UUID
+  status: ExecutionStatus;
+  scheduled_at: string; // When it was scheduled
+  started_at?: string;  // When execution began
+  completed_at?: string;// When execution finished
+  duration?: number;    // Duration in milliseconds
+  attempt: number;      // Current attempt number
+  worker_id?: string;   // Worker that executed it
+  status_code?: number; // HTTP response status code
+  request?: object;     // Request sent
+  response?: string;    // Response received
+  error?: string;       // Error message if failed
+}
+```
+
+## Querying Executions
+
+### List All Executions
+
+```bash
+curl "http://localhost:5003/api/v1/executions" \
+  -H "X-Tenant-ID: tenant-uuid"
+```
+
+### Filter by Status
+
+```bash
+curl "http://localhost:5003/api/v1/executions?status=failed" \
+  -H "X-Tenant-ID: tenant-uuid"
+```
+
+### Filter by Job
+
+```bash
+curl "http://localhost:5003/api/v1/executions?job_id=job-uuid" \
+  -H "X-Tenant-ID: tenant-uuid"
+```
+
+### Filter by Time Range
+
+```bash
+curl "http://localhost:5003/api/v1/executions?start_time=2024-01-01T00:00:00Z&end_time=2024-01-02T00:00:00Z" \
+  -H "X-Tenant-ID: tenant-uuid"
+```
+
+### List Executions for a Specific Job
+
+```bash
+curl "http://localhost:5003/api/v1/jobs/{job_id}/executions?limit=10" \
+  -H "X-Tenant-ID: tenant-uuid"
+```
+
+## Execution Details
+
+```bash
+curl "http://localhost:5003/api/v1/executions/{execution_id}" \
+  -H "X-Tenant-ID: tenant-uuid"
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "id": "exec-uuid",
+    "job_id": "job-uuid",
+    "tenant_id": "tenant-uuid",
+    "status": "completed",
+    "scheduled_at": "2024-01-15T09:00:00Z",
+    "started_at": "2024-01-15T09:00:01Z",
+    "completed_at": "2024-01-15T09:00:03Z",
+    "duration": 2500,
+    "attempt": 1,
+    "worker_id": "worker-abc123",
+    "status_code": 200,
+    "response": "{\"status\": \"ok\"}"
+  }
+}
+```
+
+## Cancelling Executions
+
+Cancel a pending or running execution:
+
+```bash
+curl -X POST "http://localhost:5003/api/v1/executions/{execution_id}/cancel" \
+  -H "X-Tenant-ID: tenant-uuid"
+```
+
+## Execution Statistics
+
+Get execution statistics for a time period:
+
+```bash
+curl "http://localhost:5003/api/v1/executions/stats?start_time=2024-01-01T00:00:00Z&end_time=2024-01-31T23:59:59Z" \
+  -H "X-Tenant-ID: tenant-uuid"
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "total": 1500,
+    "completed": 1450,
+    "failed": 30,
+    "cancelled": 20
+  }
+}
+```
+
+## Job History
+
+The scheduler aggregates daily statistics for each job, enabling long-term performance analysis.
+
+### History Structure
+
+```typescript
+interface JobHistory {
+  id: string;           // History record UUID
+  job_id: string;       // Job UUID
+  date: string;         // Date (YYYY-MM-DD)
+  success_count: number;// Successful executions
+  failure_count: number;// Failed executions
+  total_duration: number; // Total duration in ms
+  avg_duration: number; // Average duration in ms
+  min_duration: number; // Minimum duration in ms
+  max_duration: number; // Maximum duration in ms
+}
+```
+
+### Get Job History
+
+```bash
+curl "http://localhost:5003/api/v1/jobs/{job_id}/history?days=30" \
+  -H "X-Tenant-ID: tenant-uuid"
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "history-uuid",
+      "job_id": "job-uuid",
+      "date": "2024-01-15",
+      "success_count": 24,
+      "failure_count": 0,
+      "total_duration": 48000,
+      "avg_duration": 2000,
+      "min_duration": 1500,
+      "max_duration": 3000
+    }
+  ]
+}
+```
+
+### Get History by Date Range
+
+```bash
+curl "http://localhost:5003/api/v1/history?start_date=2024-01-01&end_date=2024-01-31" \
+  -H "X-Tenant-ID: tenant-uuid"
+```
+
+### Aggregated Statistics
+
+```bash
+curl "http://localhost:5003/api/v1/history/stats?job_id=job-uuid&start_date=2024-01-01&end_date=2024-01-31" \
+  -H "X-Tenant-ID: tenant-uuid"
+```
+
+Response:
+```json
+{
+  "success": true,
+  "data": {
+    "total_success": 720,
+    "total_failure": 5,
+    "total_duration": 1440000,
+    "avg_duration": 1986.21,
+    "min_duration": 1200,
+    "max_duration": 5000,
+    "success_rate": 99.31
+  }
+}
+```
+
+## Retry Behavior
+
+When a job execution fails, the scheduler handles retries:
+
+1. **Immediate retry** for transient errors (5xx, 429, network errors)
+2. **Delay between retries** (configurable, default 60 seconds)
+3. **Max retries** (configurable per job, default 3)
+4. **Final failure** recorded after all retries exhausted
+
+### Non-Retryable Errors
+
+The following are NOT retried:
+- HTTP 4xx errors (except 429)
+- Invalid response format
+- Context cancellation
+
+## Data Retention
+
+Old execution records are automatically cleaned up:
+
+- **Default**: 30 days retention
+- **Configurable** via `SCHEDULER_CLEANUP_DAYS`
+- History aggregates are kept longer for analysis

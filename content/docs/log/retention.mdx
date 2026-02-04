@@ -1,0 +1,181 @@
+---
+title: Retention Policies
+description: Configure log retention in the Log Service
+---
+
+# Retention Policies
+
+The Log Service supports configurable retention policies to manage storage costs and compliance requirements.
+
+## Overview
+
+Retention policies define:
+- How long logs are kept
+- Maximum storage size per tenant
+- Whether to archive old logs before deletion
+
+## Default Retention
+
+The default retention is configured via environment variables:
+
+```bash
+LOG_RETENTION_DAYS=30
+LOG_MAX_SIZE_GB=50
+```
+
+## Per-Tenant Retention
+
+Create custom retention policies for specific tenants:
+
+### Create Policy
+
+```bash
+curl -X POST http://localhost:5002/api/v1/retention \
+  -H "Content-Type: application/json" \
+  -d '{
+    "tenant_id": "123e4567-e89b-12d3-a456-426614174000",
+    "retention_days": 90,
+    "max_size_gb": 100,
+    "archive_enabled": true,
+    "archive_path": "s3://backup-bucket/logs"
+  }'
+```
+
+### Response
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "tenant_id": "123e4567-e89b-12d3-a456-426614174000",
+  "retention_days": 90,
+  "max_size_gb": 100,
+  "archive_enabled": true,
+  "archive_path": "s3://backup-bucket/logs",
+  "created_at": "2024-01-15T10:30:00Z",
+  "updated_at": "2024-01-15T10:30:00Z"
+}
+```
+
+## Policy Structure
+
+| Field | Type | Description | Default |
+|-------|------|-------------|---------|
+| `tenant_id` | uuid | Tenant identifier | Required |
+| `retention_days` | int | Days to retain logs | 30 |
+| `max_size_gb` | int | Maximum storage in GB | 10 |
+| `archive_enabled` | bool | Archive before deletion | false |
+| `archive_path` | string | Archive destination path | - |
+
+## Managing Policies
+
+### List All Policies
+
+```bash
+curl "http://localhost:5002/api/v1/retention"
+```
+
+### Get Policy for Tenant
+
+```bash
+curl "http://localhost:5002/api/v1/retention/tenant/123e4567-e89b-12d3-a456-426614174000"
+```
+
+### Update Policy
+
+```bash
+curl -X PUT http://localhost:5002/api/v1/retention/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "retention_days": 180,
+    "max_size_gb": 200
+  }'
+```
+
+### Delete Policy
+
+```bash
+curl -X DELETE http://localhost:5002/api/v1/retention/550e8400-e29b-41d4-a716-446655440000
+```
+
+## Cleanup Process
+
+The Log Service runs automatic cleanup daily:
+
+1. **Policy Evaluation** - Check each tenant's retention policy
+2. **Age-Based Deletion** - Delete logs older than `retention_days`
+3. **Size-Based Deletion** - Delete oldest logs if storage exceeds `max_size_gb`
+4. **Archiving** - If enabled, archive logs before deletion
+
+### Cleanup Schedule
+
+The default cleanup runs at 2 AM daily. Configure via:
+
+```bash
+LOG_CLEANUP_CRON="0 2 * * *"
+```
+
+## Table Partitioning
+
+For optimal performance, log tables are partitioned by month:
+
+```sql
+-- Partitions are created automatically
+log_entries_2024_01
+log_entries_2024_02
+log_entries_2024_03
+```
+
+Benefits:
+- **Faster Deletions** - Drop entire partitions instead of row-by-row deletion
+- **Better Query Performance** - Queries only scan relevant partitions
+- **Easier Maintenance** - Partitions can be archived independently
+
+## Compliance Considerations
+
+### GDPR
+
+- Set retention to minimum necessary
+- Enable archiving for audit requirements
+- Document data retention in privacy policy
+
+### SOC 2
+
+- Configure adequate retention for audit trails
+- Ensure proper access controls
+- Enable archiving for evidence preservation
+
+### HIPAA
+
+- Minimum 6-year retention for healthcare data
+- Secure archive storage
+- Encryption at rest and in transit
+
+## Monitoring Storage
+
+Check storage usage:
+
+```bash
+curl "http://localhost:5002/api/v1/logs/storage"
+```
+
+Set up alerts when storage approaches limits:
+
+```bash
+curl -X POST http://localhost:5002/api/v1/alerts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Storage Warning",
+    "filter": {},
+    "threshold": 1,
+    "window_mins": 60,
+    "severity": "WARN"
+  }'
+```
+
+## Best Practices
+
+1. **Set Appropriate Retention** - Balance cost vs. debugging needs
+2. **Enable Archiving** - For compliance and recovery scenarios
+3. **Monitor Storage** - Set up alerts for storage thresholds
+4. **Use Per-Tenant Policies** - Different tenants may have different requirements
+5. **Regular Reviews** - Periodically review retention policies

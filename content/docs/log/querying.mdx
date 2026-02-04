@@ -1,0 +1,230 @@
+---
+title: Log Querying
+description: Search and filter logs in the Log Service
+---
+
+# Log Querying
+
+The Log Service provides powerful querying capabilities to search, filter, and aggregate logs.
+
+## Basic Listing
+
+```bash
+curl "http://localhost:5002/api/v1/logs?page=1&page_size=100&service=auth-service&level=ERROR"
+```
+
+### Response
+
+```json
+{
+  "entries": [...],
+  "total_count": 1500,
+  "page": 1,
+  "page_size": 100,
+  "has_more": true
+}
+```
+
+## Advanced Query
+
+Use the POST query endpoint for complex searches:
+
+```bash
+curl -X POST http://localhost:5002/api/v1/logs/query \
+  -H "Content-Type: application/json" \
+  -d '{
+    "service_name": "auth-service",
+    "level": "ERROR",
+    "min_level": "WARN",
+    "start_time": "2024-01-15T00:00:00Z",
+    "end_time": "2024-01-15T23:59:59Z",
+    "search": "authentication failed",
+    "environment": "production",
+    "page": 1,
+    "page_size": 50
+  }'
+```
+
+## Query Filter Reference
+
+```json
+{
+  "tenant_id": "uuid",
+  "service_name": "auth-service",
+  "level": "ERROR",
+  "min_level": "WARN",
+  "start_time": "2024-01-15T00:00:00Z",
+  "end_time": "2024-01-15T23:59:59Z",
+  "trace_id": "abc123",
+  "user_id": "uuid",
+  "request_id": "req-123",
+  "search": "authentication failed",
+  "environment": "production",
+  "page": 1,
+  "page_size": 100
+}
+```
+
+### Filter Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `tenant_id` | uuid | Filter by tenant |
+| `service_name` | string | Filter by service name |
+| `level` | string | Exact log level match |
+| `min_level` | string | Minimum log level (includes all levels at or above) |
+| `start_time` | datetime | Start of time range (RFC3339) |
+| `end_time` | datetime | End of time range (RFC3339) |
+| `trace_id` | string | Filter by distributed trace ID |
+| `user_id` | uuid | Filter by user ID |
+| `request_id` | string | Filter by request ID |
+| `search` | string | Full-text search in message |
+| `environment` | string | Filter by environment |
+| `page` | int | Page number (1-based) |
+| `page_size` | int | Results per page (max 1000) |
+
+## Get Log by ID
+
+```bash
+curl "http://localhost:5002/api/v1/logs/550e8400-e29b-41d4-a716-446655440000"
+```
+
+## Get Logs by Trace ID
+
+Retrieve all logs belonging to a distributed trace:
+
+```bash
+curl "http://localhost:5002/api/v1/logs/trace/abc123def456"
+```
+
+## Get Logs by Request ID
+
+Retrieve all logs for a specific request:
+
+```bash
+curl "http://localhost:5002/api/v1/logs/request/req-123"
+```
+
+## Statistics
+
+Get aggregated log statistics:
+
+```bash
+curl "http://localhost:5002/api/v1/logs/stats?start=2024-01-15T00:00:00Z&end=2024-01-15T23:59:59Z"
+```
+
+### Response
+
+```json
+{
+  "total_count": 50000,
+  "level_counts": {
+    "DEBUG": 10000,
+    "INFO": 35000,
+    "WARN": 3000,
+    "ERROR": 1800,
+    "FATAL": 200
+  },
+  "service_counts": {
+    "auth-service": 15000,
+    "api-gateway": 20000,
+    "notifier": 15000
+  },
+  "time_range": {
+    "start": "2024-01-15T00:00:00Z",
+    "end": "2024-01-15T23:59:59Z"
+  }
+}
+```
+
+## Time-Bucketed Aggregation
+
+Get log counts grouped by time intervals:
+
+```bash
+curl -X POST "http://localhost:5002/api/v1/logs/aggregate?interval=hour" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "service_name": "auth-service",
+    "start_time": "2024-01-15T00:00:00Z",
+    "end_time": "2024-01-15T23:59:59Z"
+  }'
+```
+
+### Intervals
+
+| Interval | Description |
+|----------|-------------|
+| `minute` | 1-minute buckets |
+| `hour` | 1-hour buckets (default) |
+| `day` | 1-day buckets |
+
+### Response
+
+```json
+[
+  {"bucket": "2024-01-15T00:00:00Z", "count": 150},
+  {"bucket": "2024-01-15T01:00:00Z", "count": 120},
+  {"bucket": "2024-01-15T02:00:00Z", "count": 80}
+]
+```
+
+## List Services
+
+Get a list of all services that have logged entries:
+
+```bash
+curl "http://localhost:5002/api/v1/logs/services"
+```
+
+### Response
+
+```json
+["auth-service", "api-gateway", "notifier", "log-service"]
+```
+
+## Storage Usage
+
+Get storage usage statistics:
+
+```bash
+curl "http://localhost:5002/api/v1/logs/storage"
+```
+
+### Response
+
+```json
+{
+  "size_bytes": 5368709120,
+  "size_mb": 5120.0,
+  "size_gb": 5.0
+}
+```
+
+## Real-Time Streaming
+
+Stream logs in real-time using Server-Sent Events:
+
+```bash
+curl -N "http://localhost:5002/api/v1/logs/stream?service=auth-service&level=ERROR"
+```
+
+### JavaScript Client
+
+```javascript
+const eventSource = new EventSource(
+  'http://localhost:5002/api/v1/logs/stream?service=auth-service'
+);
+
+eventSource.onmessage = (event) => {
+  console.log('New log:', event.data);
+};
+```
+
+## Query Performance Tips
+
+1. **Use Time Ranges** - Always specify `start_time` and `end_time`
+2. **Index Fields** - Query on indexed fields (tenant_id, service_name, level, trace_id)
+3. **Limit Results** - Use reasonable `page_size` values
+4. **Use Specific Filters** - More specific queries are faster
+5. **Avoid Full-Text Search** - Use `search` sparingly on large datasets

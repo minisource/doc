@@ -1,0 +1,9 @@
+{
+  "title": "Scheduler",
+  "pages": [
+    "index",
+    "jobs",
+    "executions",
+    "configuration"
+  ]
+}

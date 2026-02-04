@@ -1,0 +1,161 @@
+---
+title: Log Ingestion
+description: How to send logs to the Log Service
+---
+
+# Log Ingestion
+
+The Log Service accepts logs through HTTP APIs, supporting both single and batch ingestion.
+
+## Log Entry Structure
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "tenant_id": "123e4567-e89b-12d3-a456-426614174000",
+  "service_name": "auth-service",
+  "level": "ERROR",
+  "message": "Failed to authenticate user",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "trace_id": "abc123def456",
+  "span_id": "span789",
+  "user_id": "user-uuid",
+  "request_id": "req-123",
+  "metadata": {
+    "error_code": "AUTH_001",
+    "ip_address": "192.168.1.1"
+  },
+  "source": "handler/auth.go:45",
+  "host": "pod-abc123",
+  "environment": "production"
+}
+```
+
+## Single Log Ingestion
+
+```bash
+curl -X POST http://localhost:5002/api/v1/logs \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: tenant-uuid" \
+  -d '{
+    "service_name": "my-service",
+    "level": "INFO",
+    "message": "User logged in successfully",
+    "metadata": {
+      "user_id": "user-123"
+    }
+  }'
+```
+
+### Response
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "tenant_id": "tenant-uuid",
+  "service_name": "my-service",
+  "level": "INFO",
+  "message": "User logged in successfully",
+  "timestamp": "2024-01-15T10:30:00Z"
+}
+```
+
+## Batch Ingestion
+
+For high-volume logging, use the batch endpoint:
+
+```bash
+curl -X POST http://localhost:5002/api/v1/logs/batch \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: tenant-uuid" \
+  -d '{
+    "entries": [
+      {
+        "service_name": "api-gateway",
+        "level": "INFO",
+        "message": "Request received",
+        "trace_id": "trace-123"
+      },
+      {
+        "service_name": "api-gateway",
+        "level": "INFO",
+        "message": "Request completed",
+        "trace_id": "trace-123"
+      }
+    ]
+  }'
+```
+
+### Response
+
+```json
+{
+  "count": 2
+}
+```
+
+## Go SDK Integration
+
+```go
+package main
+
+import (
+    "context"
+    "github.com/minisource/log/pkg/client"
+)
+
+func main() {
+    logger := client.NewLogClient("http://log-service:5002")
+    
+    // Single log
+    logger.Log(ctx, client.LogEntry{
+        ServiceName: "my-service",
+        Level:       "INFO",
+        Message:     "Operation completed",
+        Metadata:    map[string]interface{}{
+            "duration_ms": 150,
+        },
+    })
+    
+    // Batch logs
+    logger.LogBatch(ctx, []client.LogEntry{
+        {ServiceName: "my-service", Level: "DEBUG", Message: "Step 1"},
+        {ServiceName: "my-service", Level: "DEBUG", Message: "Step 2"},
+        {ServiceName: "my-service", Level: "INFO", Message: "Completed"},
+    })
+}
+```
+
+## Buffered Ingestion
+
+The Log Service uses internal buffering for performance:
+
+1. Logs are accumulated in an in-memory buffer
+2. Buffer is flushed every 5 seconds or when it reaches 1000 entries
+3. Batch writes reduce database I/O
+
+## Field Reference
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `service_name` | string | Yes | Name of the source service |
+| `level` | string | Yes | Log level (DEBUG, INFO, WARN, ERROR, FATAL) |
+| `message` | string | Yes | Log message content |
+| `tenant_id` | uuid | No | Tenant identifier (from header if not provided) |
+| `timestamp` | datetime | No | Log timestamp (auto-generated if not provided) |
+| `trace_id` | string | No | Distributed trace ID |
+| `span_id` | string | No | Span ID within trace |
+| `user_id` | uuid | No | User identifier |
+| `request_id` | string | No | Request correlation ID |
+| `metadata` | object | No | Additional structured data |
+| `source` | string | No | Source file and line |
+| `host` | string | No | Hostname or pod name |
+| `environment` | string | No | Deployment environment |
+
+## Best Practices
+
+1. **Use Batch Ingestion** for high-volume services
+2. **Include Trace IDs** for distributed tracing correlation
+3. **Use Structured Metadata** for searchable fields
+4. **Set Appropriate Log Levels** to manage storage costs
+5. **Include Request IDs** for request-scoped debugging

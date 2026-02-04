@@ -1,0 +1,11 @@
+{
+  "title": "Log Service",
+  "description": "Centralized logging microservice",
+  "pages": [
+    "index",
+    "ingestion",
+    "querying",
+    "retention",
+    "alerting"
+  ]
+}

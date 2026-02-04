@@ -1,0 +1,218 @@
+---
+title: Configuration
+description: Scheduler service configuration reference
+---
+
+# Configuration
+
+The Scheduler service is configured through environment variables. This page documents all available configuration options.
+
+## Server Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SERVER_PORT` | HTTP server port | `5003` |
+| `SERVER_HOST` | Server bind address | `0.0.0.0` |
+| `SERVER_READ_TIMEOUT` | HTTP read timeout | `30s` |
+| `SERVER_WRITE_TIMEOUT` | HTTP write timeout | `30s` |
+| `SERVER_SHUTDOWN_TIMEOUT` | Graceful shutdown timeout | `30s` |
+
+## PostgreSQL Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `POSTGRES_HOST` | Database host | `localhost` |
+| `POSTGRES_PORT` | Database port | `5432` |
+| `POSTGRES_USER` | Database user | `scheduler_user` |
+| `POSTGRES_PASSWORD` | Database password | `scheduler_password` |
+| `POSTGRES_DB` | Database name | `scheduler_db` |
+| `POSTGRES_SSL_MODE` | SSL mode | `disable` |
+| `POSTGRES_MAX_OPEN_CONNS` | Max open connections | `25` |
+| `POSTGRES_MAX_IDLE_CONNS` | Max idle connections | `10` |
+| `POSTGRES_MAX_LIFETIME_MINS` | Connection max lifetime | `30` |
+| `POSTGRES_LOG_LEVEL` | Database log level | `warn` |
+
+## Redis Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REDIS_HOST` | Redis host | `localhost` |
+| `REDIS_PORT` | Redis port | `6379` |
+| `REDIS_PASSWORD` | Redis password | (empty) |
+| `REDIS_DB` | Redis database number | `2` |
+
+## Scheduler Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SCHEDULER_WORKER_COUNT` | Number of worker goroutines | `10` |
+| `SCHEDULER_MAX_RETRIES` | Default max retries per job | `3` |
+| `SCHEDULER_RETRY_DELAY_SECONDS` | Delay between retries | `60` |
+| `SCHEDULER_LOCK_TTL_SECONDS` | Distributed lock TTL | `300` |
+| `SCHEDULER_HEARTBEAT_SECONDS` | Leader heartbeat interval | `30` |
+| `SCHEDULER_CLEANUP_DAYS` | Days to keep execution history | `30` |
+| `SCHEDULER_TIMEZONE` | Default timezone for jobs | `UTC` |
+
+## Tracing Configuration (OpenTelemetry)
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TRACING_ENABLED` | Enable OpenTelemetry tracing | `true` |
+| `SERVICE_NAME` | Service name for traces | `scheduler-service` |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | OTLP exporter endpoint | `http://localhost:4318` |
+| `TRACING_SAMPLE_RATE` | Trace sampling rate (0.0-1.0) | `1.0` |
+
+## Example .env File
+
+```bash
+# Server
+SERVER_PORT=5003
+
+# PostgreSQL
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=scheduler
+POSTGRES_PASSWORD=secure_password
+POSTGRES_DB=scheduler
+POSTGRES_SSL_MODE=disable
+POSTGRES_MAX_OPEN_CONNS=25
+POSTGRES_MAX_IDLE_CONNS=10
+POSTGRES_MAX_LIFETIME_MINS=30
+POSTGRES_LOG_LEVEL=warn
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+REDIS_DB=2
+
+# Scheduler
+SCHEDULER_WORKER_COUNT=10
+SCHEDULER_MAX_RETRIES=3
+SCHEDULER_RETRY_DELAY_SECONDS=60
+SCHEDULER_LOCK_TTL_SECONDS=300
+SCHEDULER_HEARTBEAT_SECONDS=30
+SCHEDULER_CLEANUP_DAYS=30
+SCHEDULER_TIMEZONE=UTC
+
+# Tracing
+TRACING_ENABLED=true
+SERVICE_NAME=scheduler
+OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+TRACING_SAMPLE_RATE=1.0
+```
+
+## Docker Compose Configuration
+
+### Development
+
+```yaml
+services:
+  scheduler:
+    build: .
+    ports:
+      - "5003:5003"
+    environment:
+      - SERVER_PORT=5003
+      - POSTGRES_HOST=postgres
+      - REDIS_HOST=redis
+      - SCHEDULER_WORKER_COUNT=5
+      - TRACING_ENABLED=true
+    depends_on:
+      - postgres
+      - redis
+```
+
+### Production
+
+```yaml
+services:
+  scheduler:
+    image: minisource/scheduler:latest
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          cpus: '1'
+          memory: 512M
+    environment:
+      - POSTGRES_SSL_MODE=require
+      - SCHEDULER_WORKER_COUNT=10
+```
+
+## Performance Tuning
+
+### Worker Count
+
+The optimal worker count depends on:
+- Number of concurrent jobs
+- Job execution duration
+- Available CPU cores
+
+**Recommendation**: Start with `workers = CPU_cores * 2` and adjust based on monitoring.
+
+### Connection Pools
+
+For high-throughput scenarios:
+
+```bash
+POSTGRES_MAX_OPEN_CONNS=50
+POSTGRES_MAX_IDLE_CONNS=25
+```
+
+### Lock TTL
+
+The lock TTL should be:
+- Longer than the longest expected job execution
+- Shorter than the scheduling interval for frequent jobs
+
+**Default**: 300 seconds (5 minutes)
+
+## Health Checks
+
+The scheduler exposes health endpoints:
+
+| Endpoint | Purpose | Response |
+|----------|---------|----------|
+| `/health` | Overall health | Database + scheduler status |
+| `/ready` | Readiness probe | Returns 200 when ready |
+| `/live` | Liveness probe | Returns 200 if alive |
+
+### Kubernetes Probes
+
+```yaml
+livenessProbe:
+  httpGet:
+    path: /live
+    port: 5003
+  initialDelaySeconds: 5
+  periodSeconds: 10
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 5003
+  initialDelaySeconds: 10
+  periodSeconds: 5
+```
+
+## Monitoring
+
+### Recommended Metrics to Monitor
+
+1. **Job Execution Rate**: Executions per minute
+2. **Failure Rate**: Failed executions / Total executions
+3. **Execution Duration**: P50, P95, P99 latencies
+4. **Queue Depth**: Pending executions count
+5. **Worker Utilization**: Active workers / Total workers
+
+### Jaeger Integration
+
+Enable tracing to track job execution flows:
+
+```bash
+TRACING_ENABLED=true
+OTEL_EXPORTER_OTLP_ENDPOINT=http://jaeger:4318
+```
+
+Access Jaeger UI at `http://localhost:16686` when using the dev Docker Compose.

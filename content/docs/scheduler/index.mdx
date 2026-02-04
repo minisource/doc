@@ -1,0 +1,114 @@
+---
+title: Scheduler Service
+description: Distributed job scheduling microservice for Minisource platform
+---
+
+# Scheduler Service
+
+The Scheduler service provides distributed job scheduling capabilities for the Minisource platform. It supports multiple job types including cron-based scheduling, one-time jobs, and interval-based recurring jobs.
+
+## Overview
+
+The Scheduler service is designed for:
+
+- **Scheduled Task Execution**: Run tasks at specific times or intervals
+- **Distributed Processing**: Multiple instances with Redis-based coordination
+- **HTTP Callbacks**: Execute jobs by calling HTTP endpoints
+- **Reliable Execution**: Retry logic with configurable attempts
+- **Observability**: Comprehensive history and statistics tracking
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Scheduler Service                       │
+├─────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐         │
+│  │  HTTP API   │  │  Scheduler  │  │  Worker     │         │
+│  │  (Fiber)    │  │   Engine    │  │   Pool      │         │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
+│         │                │                │                 │
+│  ┌──────┴────────────────┴────────────────┴──────┐         │
+│  │                 Service Layer                  │         │
+│  └──────┬────────────────┬────────────────┬──────┘         │
+│         │                │                │                 │
+│  ┌──────┴──────┐  ┌──────┴──────┐  ┌──────┴──────┐         │
+│  │ Job Repo    │  │ Exec Repo   │  │ History Repo│         │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘         │
+└─────────┼────────────────┼────────────────┼─────────────────┘
+          │                │                │
+     ┌────┴────────────────┴────────────────┴────┐
+     │              PostgreSQL                    │
+     └───────────────────────────────────────────┘
+          │
+     ┌────┴─────┐
+     │  Redis   │ (Distributed Locking)
+     └──────────┘
+```
+
+## Key Features
+
+### Job Types
+
+| Type | Description | Schedule Format |
+|------|-------------|-----------------|
+| `cron` | Cron-based scheduling | Cron expression (6 fields with seconds) |
+| `one_time` | Single execution | ISO 8601 timestamp |
+| `interval` | Fixed interval | Seconds as integer |
+
+### Worker Pool
+
+The scheduler uses a configurable worker pool for parallel job execution:
+
+- Default 10 workers
+- Task queue with 10x buffer capacity
+- Graceful shutdown support
+
+### Distributed Locking
+
+For multi-instance deployments, Redis is used for:
+
+- Leader election
+- Job execution locking
+- Preventing duplicate executions
+
+## Quick Start
+
+### Using Docker Compose
+
+```bash
+# Start the scheduler with dependencies
+docker-compose up -d
+
+# Check service health
+curl http://localhost:5003/health
+```
+
+### Creating a Job
+
+```bash
+curl -X POST http://localhost:5003/api/v1/jobs \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: your-tenant-id" \
+  -d '{
+    "name": "Daily Report",
+    "type": "cron",
+    "schedule": "0 0 9 * * *",
+    "endpoint": "https://api.example.com/reports/generate",
+    "method": "POST",
+    "timeout": 60
+  }'
+```
+
+## Service Integration
+
+Other microservices can integrate with the Scheduler by:
+
+1. **Creating jobs** via the REST API
+2. **Exposing callback endpoints** that the scheduler will call
+3. **Querying execution history** for monitoring
+
+## API Base URL
+
+- **Development**: `http://localhost:5003`
+- **Docker Network**: `http://scheduler:5003`

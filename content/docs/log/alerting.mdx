@@ -1,0 +1,247 @@
+---
+title: Log Alerting
+description: Set up log-based alerts in the Log Service
+---
+
+# Log Alerting
+
+The Log Service provides threshold-based alerting to notify you of critical log events.
+
+## Overview
+
+Alerts trigger when logs matching specific criteria exceed a threshold within a time window.
+
+## Alert Structure
+
+```json
+{
+  "id": "550e8400-e29b-41d4-a716-446655440000",
+  "tenant_id": "123e4567-e89b-12d3-a456-426614174000",
+  "name": "High Error Rate",
+  "description": "Alert when error rate exceeds threshold",
+  "enabled": true,
+  "filter": {
+    "service_name": "auth-service",
+    "level": "ERROR"
+  },
+  "threshold": 100,
+  "window_mins": 5,
+  "severity": "CRITICAL",
+  "channels": ["slack", "email"],
+  "last_triggered": "2024-01-15T10:30:00Z"
+}
+```
+
+## Creating Alerts
+
+### Error Rate Alert
+
+```bash
+curl -X POST http://localhost:5002/api/v1/alerts \
+  -H "Content-Type: application/json" \
+  -H "X-Tenant-ID: tenant-uuid" \
+  -d '{
+    "name": "High Error Rate",
+    "description": "Trigger when more than 100 errors in 5 minutes",
+    "filter": {
+      "service_name": "auth-service",
+      "level": "ERROR"
+    },
+    "threshold": 100,
+    "window_mins": 5,
+    "severity": "CRITICAL"
+  }'
+```
+
+### Authentication Failure Alert
+
+```bash
+curl -X POST http://localhost:5002/api/v1/alerts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Auth Failures Spike",
+    "filter": {
+      "service_name": "auth-service",
+      "search": "authentication failed"
+    },
+    "threshold": 50,
+    "window_mins": 10,
+    "severity": "WARN"
+  }'
+```
+
+### Fatal Error Alert
+
+```bash
+curl -X POST http://localhost:5002/api/v1/alerts \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "Fatal Errors",
+    "filter": {
+      "level": "FATAL"
+    },
+    "threshold": 1,
+    "window_mins": 1,
+    "severity": "CRITICAL"
+  }'
+```
+
+## Alert Configuration
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `name` | string | Yes | Alert name |
+| `description` | string | No | Alert description |
+| `filter` | object | Yes | Log filter criteria |
+| `threshold` | int | Yes | Number of logs to trigger |
+| `window_mins` | int | Yes | Time window in minutes |
+| `severity` | string | Yes | Alert severity (INFO, WARN, ERROR, CRITICAL) |
+| `channels` | array | No | Notification channels |
+| `enabled` | bool | No | Whether alert is active (default: true) |
+
+## Managing Alerts
+
+### List Alerts
+
+```bash
+curl "http://localhost:5002/api/v1/alerts"
+```
+
+### Get Alert
+
+```bash
+curl "http://localhost:5002/api/v1/alerts/550e8400-e29b-41d4-a716-446655440000"
+```
+
+### Update Alert
+
+```bash
+curl -X PUT http://localhost:5002/api/v1/alerts/550e8400-e29b-41d4-a716-446655440000 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "threshold": 200,
+    "window_mins": 10
+  }'
+```
+
+### Enable/Disable Alert
+
+```bash
+# Enable
+curl -X POST "http://localhost:5002/api/v1/alerts/550e8400-e29b-41d4-a716-446655440000/enable"
+
+# Disable
+curl -X POST "http://localhost:5002/api/v1/alerts/550e8400-e29b-41d4-a716-446655440000/disable"
+```
+
+### Delete Alert
+
+```bash
+curl -X DELETE "http://localhost:5002/api/v1/alerts/550e8400-e29b-41d4-a716-446655440000"
+```
+
+## Severity Levels
+
+| Severity | Description | Use Case |
+|----------|-------------|----------|
+| `INFO` | Informational alerts | Unusual patterns, not urgent |
+| `WARN` | Warning alerts | Potential issues, investigate soon |
+| `ERROR` | Error alerts | Service degradation, action needed |
+| `CRITICAL` | Critical alerts | Outage or security incident, immediate action |
+
+## Alert Evaluation
+
+Alerts are evaluated in real-time as logs are ingested:
+
+1. **Log Received** - New log entry arrives
+2. **Filter Match** - Check if log matches alert filters
+3. **Threshold Check** - Count matching logs in time window
+4. **Rate Limiting** - Minimum 1 minute between triggers
+5. **Notification** - Send to configured channels
+
+## Notification Channels
+
+Configure notification channels in alert configuration:
+
+```json
+{
+  "channels": [
+    {"type": "slack", "webhook": "https://hooks.slack.com/..."},
+    {"type": "email", "recipients": ["ops@company.com"]},
+    {"type": "webhook", "url": "https://your-webhook.com/alerts"}
+  ]
+}
+```
+
+### Supported Channels
+
+| Channel | Configuration |
+|---------|---------------|
+| Slack | Webhook URL |
+| Email | List of recipients |
+| Webhook | Custom HTTP endpoint |
+| PagerDuty | Integration key |
+
+## Common Alert Patterns
+
+### Service Health
+
+```json
+{
+  "name": "Service Unhealthy",
+  "filter": {"level": "FATAL"},
+  "threshold": 1,
+  "window_mins": 1,
+  "severity": "CRITICAL"
+}
+```
+
+### Error Spike Detection
+
+```json
+{
+  "name": "Error Spike",
+  "filter": {"level": "ERROR"},
+  "threshold": 500,
+  "window_mins": 5,
+  "severity": "WARN"
+}
+```
+
+### Slow Response Detection
+
+```json
+{
+  "name": "Slow Responses",
+  "filter": {
+    "service_name": "api-gateway",
+    "search": "response time exceeded"
+  },
+  "threshold": 100,
+  "window_mins": 10,
+  "severity": "WARN"
+}
+```
+
+### Security Events
+
+```json
+{
+  "name": "Suspicious Activity",
+  "filter": {
+    "search": "unauthorized|forbidden|blocked"
+  },
+  "threshold": 10,
+  "window_mins": 5,
+  "severity": "CRITICAL"
+}
+```
+
+## Best Practices
+
+1. **Start Conservative** - Begin with high thresholds, tune down
+2. **Use Severity Appropriately** - Only CRITICAL for true emergencies
+3. **Avoid Alert Fatigue** - Too many alerts reduce effectiveness
+4. **Include Context** - Use descriptive names and descriptions
+5. **Regular Review** - Audit alerts periodically for relevance
+6. **Test Alerts** - Verify alerts trigger as expected
