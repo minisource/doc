@@ -1,0 +1,120 @@
+---
+title: Notifier Service
+description: Comprehensive notification microservice with multi-channel support
+---
+
+# Notifier Service
+
+A high-performance, scalable notification microservice that supports multiple notification channels including SMS, Email, Push notifications, and In-App notifications with WebSocket support.
+
+## Features
+
+- **Multi-Channel Support**: SMS, Email, Push, and In-App notifications
+- **Database-Driven Configuration**: Store notification providers and settings in PostgreSQL
+- **Retry Mechanism**: Exponential backoff retry policy for failed notifications
+- **Real-Time Notifications**: WebSocket support for instant in-app notifications
+- **Notification Templates**: Reusable templates with variable substitution
+- **User Preferences**: Per-user notification preferences management
+- **Batch Processing**: Send notifications to multiple recipients efficiently
+- **Worker Queue**: Asynchronous processing with configurable worker pool
+- **gRPC & REST APIs**: Support for both gRPC and REST endpoints
+- **High Scalability**: Built for high-traffic microservice environments
+
+## Architecture
+
+```
+┌─────────────┐
+│   Clients   │
+└──────┬──────┘
+       │
+  ┌────┴────┬──────────┐
+  │         │          │
+┌─▼──┐  ┌──▼───┐  ┌───▼────┐
+│REST│  │ gRPC │  │WebSocket│
+└─┬──┘  └──┬───┘  └───┬────┘
+  │        │          │
+  └────┬───┴──────────┘
+       │
+  ┌────▼────────┐
+  │   Service   │
+  │    Layer    │
+  └────┬────────┘
+       │
+  ┌────▼────────┐      ┌──────────┐
+  │ Repository  │◄─────┤PostgreSQL│
+  │    Layer    │      └──────────┘
+  └────┬────────┘
+       │
+  ┌────▼────────┐
+  │Worker Queue │
+  │ + Retry     │
+  └─────────────┘
+```
+
+## Quick Start
+
+### Prerequisites
+
+- Go 1.23.4 or later
+- PostgreSQL 16 or later
+- Protocol Buffers compiler (for gRPC)
+
+### Installation
+
+```bash
+git clone https://github.com/minisource/notifier.git
+cd notifier
+go mod download
+```
+
+### Configuration
+
+Copy the example environment file:
+
+```bash
+cp .env.example .env
+```
+
+Edit `.env` with your settings:
+
+```env
+# Server Configuration
+SERVER_INTERNAL_PORT=9002
+GRPC_PORT=9003
+
+# Database Configuration
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DBNAME=notifier_db
+
+# Worker Configuration
+WORKER_NUM_WORKERS=10
+WORKER_QUEUE_SIZE=1000
+```
+
+### Running
+
+```bash
+# Development
+go run cmd/server/main.go
+
+# Production build
+go build -o bin/notifier ./cmd/server
+./bin/notifier
+```
+
+### Using Docker
+
+```bash
+docker-compose up -d
+```
+
+## Next Steps
+
+- [REST API Reference](/docs/notif/rest-api)
+- [gRPC API Reference](/docs/notif/grpc-api)
+- [Configuration Guide](/docs/notif/configuration)
+- [Deployment Guide](/docs/notif/deployment)
+- [Examples](/docs/notif/examples)

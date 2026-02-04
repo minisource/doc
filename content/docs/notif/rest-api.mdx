@@ -1,0 +1,249 @@
+---
+title: REST API Reference
+description: Complete REST API documentation for the Notifier service
+---
+
+# REST API Reference
+
+Base URL: `http://localhost:9002/api/v1`
+
+## Authentication
+
+Currently, the API doesn't require authentication. In production, integrate with your authentication service.
+
+## Notifications
+
+### Create Notification
+
+Create a single notification.
+
+**Endpoint:** `POST /notifications`
+
+**Request Body:**
+
+```json
+{
+  "userId": "550e8400-e29b-41d4-a716-446655440000",
+  "type": "sms",
+  "priority": "normal",
+  "recipientPhone": "+1234567890",
+  "recipientEmail": "user@example.com",
+  "subject": "Welcome",
+  "body": "Welcome to our service!",
+  "metadata": {
+    "campaign": "welcome-series"
+  },
+  "templateId": "optional-template-id",
+  "scheduledAt": "2026-02-01T10:00:00Z"
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "result": {
+    "id": "notification-id"
+  },
+  "statusCode": 201
+}
+```
+
+### Create Batch Notifications
+
+Send multiple notifications at once.
+
+**Endpoint:** `POST /notifications/batch`
+
+**Request Body:**
+
+```json
+{
+  "notifications": [
+    {
+      "userId": "user-id-1",
+      "type": "email",
+      "body": "Message 1"
+    },
+    {
+      "userId": "user-id-2",
+      "type": "sms",
+      "body": "Message 2"
+    }
+  ]
+}
+```
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "result": {
+    "successCount": 2,
+    "failedCount": 0,
+    "successIds": ["id1", "id2"]
+  },
+  "statusCode": 201
+}
+```
+
+### Get User Notifications
+
+Retrieve paginated notifications for a user.
+
+**Endpoint:** `GET /notifications/user/{userId}`
+
+**Query Parameters:**
+- `page` (optional): Page number (default: 1)
+- `pageSize` (optional): Items per page (default: 20)
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "result": {
+    "data": [
+      {
+        "id": "notification-id",
+        "userId": "user-id",
+        "type": "sms",
+        "status": "sent",
+        "priority": "normal",
+        "body": "Your message",
+        "createdAt": "2026-01-31T12:00:00Z",
+        "sentAt": "2026-01-31T12:00:05Z"
+      }
+    ],
+    "total": 100,
+    "page": 1,
+    "pageSize": 20,
+    "totalPages": 5
+  }
+}
+```
+
+### Get Unread Notifications
+
+Retrieve unread notifications for a user.
+
+**Endpoint:** `GET /notifications/user/{userId}/unread`
+
+**Query Parameters:** Same as Get User Notifications
+
+### Mark as Read
+
+Mark a notification as read.
+
+**Endpoint:** `PUT /notifications/{notificationId}/read`
+
+**Response:**
+
+```json
+{
+  "success": true,
+  "statusCode": 200
+}
+```
+
+## Templates
+
+### Create Template
+
+Create a reusable notification template.
+
+**Endpoint:** `POST /templates`
+
+**Request Body:**
+
+```json
+{
+  "name": "welcome-email",
+  "type": "email",
+  "subject": "Welcome {{userName}}",
+  "body": "Hello {{userName}}, welcome to our service!",
+  "description": "Welcome email template",
+  "variables": ["userName"],
+  "provider": "smtp"
+}
+```
+
+### Get All Templates
+
+**Endpoint:** `GET /templates`
+
+**Query Parameters:**
+- `page` (optional)
+- `pageSize` (optional)
+
+### Get Template
+
+**Endpoint:** `GET /templates/{templateId}`
+
+### Update Template
+
+**Endpoint:** `PUT /templates/{templateId}`
+
+### Delete Template
+
+**Endpoint:** `DELETE /templates/{templateId}`
+
+## Preferences
+
+### Get User Preferences
+
+**Endpoint:** `GET /preferences/user/{userId}`
+
+### Update Preference
+
+**Endpoint:** `PUT /preferences/user/{userId}`
+
+**Request Body:**
+
+```json
+{
+  "type": "sms",
+  "isEnabled": true,
+  "allowInstant": true,
+  "allowDigest": false,
+  "digestFrequency": "daily",
+  "categorySettings": {
+    "marketing": false,
+    "alerts": true
+  }
+}
+```
+
+## Health Check
+
+**Endpoint:** `GET /health`
+
+**Response:**
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "2026-01-31T12:00:00Z"
+}
+```
+
+## Error Responses
+
+All endpoints may return error responses in this format:
+
+```json
+{
+  "success": false,
+  "error": "Error message",
+  "statusCode": 400
+}
+```
+
+Common status codes:
+- `200` - Success
+- `201` - Created
+- `400` - Bad Request
+- `404` - Not Found
+- `500` - Internal Server Error

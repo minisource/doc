@@ -1,0 +1,218 @@
+---
+title: Auth Service
+description: Complete authentication and authorization service for MiniSource
+icon: Lock
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+
+# Auth Service
+
+The Auth Service provides comprehensive authentication and authorization capabilities including user management, JWT tokens, role-based access control (RBAC), and service-to-service authentication.
+
+## Features
+
+<Cards>
+  <Card title="User Authentication" icon="User">
+    Email/phone login with OTP, password-based auth, and session management
+  </Card>
+  <Card title="JWT Tokens" icon="Key">
+    Secure JWT tokens with refresh token support and automatic expiration
+  </Card>
+  <Card title="Role-Based Access" icon="Shield">
+    Flexible RBAC system with permissions and role hierarchies
+  </Card>
+  <Card title="Service Auth" icon="Server">
+    Service-to-service authentication for microservices communication
+  </Card>
+</Cards>
+
+## Architecture
+
+The Auth Service is built with:
+
+- **Go Fiber** - High-performance HTTP framework
+- **PostgreSQL** - User and session data storage
+- **Redis** - Session caching and rate limiting
+- **gRPC** - Service-to-service communication
+- **JWT** - Stateless authentication tokens
+
+## Quick Start
+
+<Steps>
+  <Step>
+    ### Start the Service
+    
+    ```bash
+    cd auth
+    make dev
+    ```
+  </Step>
+  
+  <Step>
+    ### Run Migrations
+    
+    ```bash
+    make migrate-up
+    ```
+  </Step>
+  
+  <Step>
+    ### Test Authentication
+    
+    ```bash
+    curl -X POST http://localhost:9001/api/v1/auth/register \
+      -H "Content-Type: application/json" \
+      -d '{
+        "email": "user@example.com",
+        "password": "SecurePass123!",
+        "firstName": "John",
+        "lastName": "Doe"
+      }'
+    ```
+  </Step>
+</Steps>
+
+## Core Concepts
+
+### Users
+
+Users are the primary entities in the Auth Service. Each user has:
+
+- **Unique ID** - UUID identifier
+- **Email/Phone** - Primary login credentials
+- **Password** - Bcrypt hashed
+- **Profile** - First name, last name, avatar
+- **Status** - Active, inactive, banned
+- **Roles** - Multiple roles per user
+
+### Tokens
+
+The service issues two types of tokens:
+
+- **Access Token** - Short-lived (15 minutes), used for API requests
+- **Refresh Token** - Long-lived (7 days), used to obtain new access tokens
+
+### Roles & Permissions
+
+Role-based access control with:
+
+- **Predefined Roles** - Admin, User, Guest
+- **Custom Roles** - Create application-specific roles
+- **Permissions** - Granular permissions like `users:read`, `posts:write`
+- **Hierarchical** - Roles can inherit permissions
+
+## API Endpoints
+
+### Public Endpoints
+
+```http
+POST   /api/v1/auth/register        # Register new user
+POST   /api/v1/auth/login           # Login with email/password
+POST   /api/v1/auth/otp/request     # Request OTP for phone login
+POST   /api/v1/auth/otp/verify      # Verify OTP code
+POST   /api/v1/auth/refresh         # Refresh access token
+POST   /api/v1/auth/forgot-password # Request password reset
+```
+
+### Protected Endpoints
+
+```http
+GET    /api/v1/auth/me              # Get current user profile
+PUT    /api/v1/auth/me              # Update current user
+POST   /api/v1/auth/logout          # Logout current session
+PUT    /api/v1/auth/change-password # Change password
+```
+
+### Admin Endpoints
+
+```http
+GET    /api/v1/users                # List all users
+GET    /api/v1/users/:id            # Get user by ID
+PUT    /api/v1/users/:id            # Update user
+DELETE /api/v1/users/:id            # Delete user
+POST   /api/v1/users/:id/ban        # Ban user
+GET    /api/v1/roles                # List all roles
+POST   /api/v1/roles                # Create role
+```
+
+## Configuration
+
+The service is configured via environment variables:
+
+```bash
+# Server
+SERVER_HOST=0.0.0.0
+SERVER_PORT=9001
+
+# Database
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=auth_user
+POSTGRES_PASSWORD=auth_password
+POSTGRES_DB=auth_db
+
+# Redis
+REDIS_HOST=localhost
+REDIS_PORT=6379
+REDIS_PASSWORD=
+
+# JWT
+JWT_SECRET=your-secret-key-change-in-production
+JWT_ACCESS_EXPIRY=15m
+JWT_REFRESH_EXPIRY=168h
+
+# OTP
+OTP_LENGTH=6
+OTP_EXPIRY=5m
+OTP_MAX_ATTEMPTS=3
+```
+
+## Database Schema
+
+Key tables:
+
+- **users** - User accounts and profiles
+- **user_sessions** - Active user sessions
+- **roles** - Role definitions
+- **permissions** - Permission definitions
+- **user_roles** - User-role assignments
+- **role_permissions** - Role-permission mappings
+- **service_clients** - Service-to-service auth clients
+- **settings** - Global system settings
+
+## Security Features
+
+<Cards>
+  <Card title="Password Hashing" icon="Lock">
+    Bcrypt with configurable cost factor
+  </Card>
+  <Card title="Rate Limiting" icon="Clock">
+    Prevent brute force attacks
+  </Card>
+  <Card title="Session Management" icon="Users">
+    Track and revoke user sessions
+  </Card>
+  <Card title="Audit Logging" icon="FileText">
+    Log all authentication events
+  </Card>
+</Cards>
+
+## Next Steps
+
+<Cards>
+  <Card title="Getting Started" href="/docs/auth/getting-started">
+    Step-by-step integration guide
+  </Card>
+  <Card title="API Reference" href="/docs/auth/api-reference">
+    Complete API documentation
+  </Card>
+  <Card title="JWT Tokens" href="/docs/auth/jwt-tokens">
+    Understanding JWT authentication
+  </Card>
+  <Card title="Examples" href="/docs/auth/examples">
+    Code examples and use cases
+  </Card>
+</Cards>

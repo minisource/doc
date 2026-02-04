@@ -1,0 +1,159 @@
+---
+title: Go Common Library
+description: Shared utilities and components for MiniSource services
+icon: Package
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+# Go Common Library
+
+The `go-common` library provides shared utilities, middleware, and components used across all MiniSource microservices. It ensures consistency and reduces code duplication.
+
+## Features
+
+<Cards>
+  <Card title="HTTP Middleware" icon="Filter">
+    Authentication, logging, CORS, rate limiting
+  </Card>
+  <Card title="Database Utilities" icon="Database">
+    Connection pooling, migrations, repository patterns
+  </Card>
+  <Card title="Response Handling" icon="CheckCircle">
+    Standardized API responses and error formatting
+  </Card>
+  <Card title="Validation" icon="Shield">
+    Request validation with struct tags
+  </Card>
+  <Card title="Logging" icon="FileText">
+    Structured logging with context propagation
+  </Card>
+  <Card title="Metrics & Tracing" icon="Activity">
+    Prometheus metrics and OpenTelemetry tracing
+  </Card>
+</Cards>
+
+## Installation
+
+```bash
+go get github.com/minisource/go-common
+```
+
+## Packages
+
+### HTTP Package
+
+HTTP utilities and middleware:
+
+```go
+import "github.com/minisource/go-common/http"
+
+// Create Fiber app with common middleware
+app := http.NewApp(http.AppConfig{
+    ServiceName: "my-service",
+    Version:     "1.0.0",
+    EnableCORS:  true,
+    EnableLogger: true,
+})
+```
+
+### Database Package
+
+Database connection and utilities:
+
+```go
+import "github.com/minisource/go-common/db"
+
+// Connect to PostgreSQL
+db, err := db.NewPostgresConnection(db.Config{
+    Host:     "localhost",
+    Port:     5432,
+    User:     "user",
+    Password: "password",
+    Database: "mydb",
+    SSLMode:  "disable",
+})
+```
+
+### Response Package
+
+Standardized API responses:
+
+```go
+import "github.com/minisource/go-common/response"
+
+// Success response
+return c.JSON(response.Success(user))
+
+// Error response
+return c.Status(400).JSON(response.Error("Invalid input", "VALIDATION_ERROR"))
+
+// Paginated response
+return c.JSON(response.Paginated(users, total, page, pageSize))
+```
+
+### Validation Package
+
+Request validation:
+
+```go
+import "github.com/minisource/go-common/validations"
+
+type CreateUserRequest struct {
+    Email    string `json:"email" validate:"required,email"`
+    Password string `json:"password" validate:"required,min=8"`
+    Age      int    `json:"age" validate:"gte=18"`
+}
+
+// Validate struct
+if err := validations.Validate(req); err != nil {
+    return c.Status(400).JSON(response.ValidationError(err))
+}
+```
+
+### Logging Package
+
+Structured logging:
+
+```go
+import "github.com/minisource/go-common/logging"
+
+logger := logging.NewLogger(logging.Config{
+    Level:  "info",
+    Format: "json",
+})
+
+logger.Info("User created", 
+    "userId", user.ID,
+    "email", user.Email,
+)
+```
+
+### Context Package
+
+Context utilities and values:
+
+```go
+import "github.com/minisource/go-common/context"
+
+// Extract user ID from context
+userID := context.GetUserID(ctx)
+
+// Extract trace ID
+traceID := context.GetTraceID(ctx)
+
+// Create context with values
+ctx = context.WithUserID(ctx, "user-123")
+ctx = context.WithTraceID(ctx, "trace-abc")
+```
+
+## Next Steps
+
+<Cards>
+  <Card title="HTTP Middleware" href="/docs/common/http-middleware">
+    Learn about available middleware
+  </Card>
+  <Card title="Database Guide" href="/docs/common/database">
+    Database connection and patterns
+  </Card>
+</Cards>

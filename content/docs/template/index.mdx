@@ -1,0 +1,84 @@
+---
+title: Service Template
+description: Scaffold new microservices with MiniSource template
+icon: FileCode
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+# Service Template
+
+The MiniSource service template provides a production-ready foundation for creating new microservices.
+
+## Features
+
+<Cards>
+  <Card title="Go Fiber" icon="Zap">
+    High-performance HTTP framework pre-configured
+  </Card>
+  <Card title="GORM" icon="Database">
+    Database ORM with PostgreSQL support
+  </Card>
+  <Card title="gRPC" icon="Server">
+    Service-to-service communication ready
+  </Card>
+  <Card title="Migrations" icon="GitBranch">
+    Database migration setup included
+  </Card>
+  <Card title="Docker" icon="Box">
+    Docker and docker-compose configuration
+  </Card>
+  <Card title="Makefile" icon="Terminal">
+    Common development commands automated
+  </Card>
+</Cards>
+
+## What's Included
+
+- **Project Structure** - Organized directory layout
+- **HTTP Server** - Fiber with middleware
+- **gRPC Server** - Protobuf service definitions
+- **Database** - PostgreSQL connection and migrations
+- **Configuration** - Environment-based config
+- **Logging** - Structured logging with context
+- **Testing** - Unit and integration test setup
+- **CI/CD** - GitHub Actions workflows
+- **Documentation** - Swagger/OpenAPI specs
+
+## Quick Start
+
+See [Create New Service](/docs/template/create-service) for step-by-step instructions.
+
+## Project Structure
+
+```
+my-service/
+├── cmd/
+│   ├── main.go          # Application entry point
+│   └── migrate/         # Migration tool
+├── internal/
+│   ├── handler/         # HTTP handlers
+│   ├── service/         # Business logic
+│   ├── repository/      # Data access
+│   └── models/          # Domain models
+├── proto/               # Protobuf definitions
+├── migrations/          # SQL migrations
+├── config/              # Configuration
+├── docker/              # Docker files
+├── Makefile            # Build commands
+└── README.md
+```
+
+## Next Steps
+
+<Cards>
+  <Card title="Create Service" href="/docs/template/create-service">
+    Step-by-step guide to create a new service
+  </Card>
+  <Card title="Common Library" href="/docs/common">
+    Shared utilities and middleware
+  </Card>
+  <Card title="Deployment" href="/docs/deployment">
+    Deploy your service to production
+  </Card>
+</Cards>

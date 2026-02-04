@@ -1,0 +1,396 @@
+---
+title: Go SDK
+description: Official Go SDK for MiniSource platform
+icon: Code
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+# MiniSource Go SDK
+
+The official Go SDK provides type-safe clients for all MiniSource services, making it easy to integrate authentication, notifications, and other platform features into your Go applications.
+
+## Features
+
+<Cards>
+  <Card title="Type Safety" icon="Shield">
+    Fully typed interfaces with compile-time safety
+  </Card>
+  <Card title="Context Support" icon="Clock">
+    Built-in context propagation and cancellation
+  </Card>
+  <Card title="Error Handling" icon="AlertTriangle">
+    Structured error types with detailed messages
+  </Card>
+  <Card title="Auto Retry" icon="RefreshCw">
+    Configurable retry logic with exponential backoff
+  </Card>
+</Cards>
+
+## Supported Services
+
+The SDK provides clients for:
+
+- **Auth Service** - User authentication, registration, JWT tokens
+- **Notifier Service** - Send SMS, email, push notifications
+- **Template Service** - Manage and render templates
+- **Common Utilities** - HTTP clients, context helpers, validation
+
+## Installation
+
+Install the SDK using Go modules:
+
+```bash
+go get github.com/minisource/go-sdk
+```
+
+Or add to your `go.mod`:
+
+```go
+require (
+    github.com/minisource/go-sdk v0.1.0
+)
+```
+
+## Quick Start
+
+### Auth Client
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    "github.com/minisource/go-sdk/auth"
+)
+
+func main() {
+    // Create auth client
+    client, err := auth.NewClient("http://localhost:9001")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Register a new user
+    user, tokens, err := client.Register(context.Background(), auth.RegisterRequest{
+        Email:     "user@example.com",
+        Password:  "SecurePass123!",
+        FirstName: "John",
+        LastName:  "Doe",
+    })
+    
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    fmt.Printf("User created: %s\n", user.ID)
+    fmt.Printf("Access token: %s\n", tokens.AccessToken)
+}
+```
+
+### Notifier Client
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    
+    "github.com/minisource/go-sdk/notifier"
+)
+
+func main() {
+    // Create notifier client
+    client, err := notifier.NewClient("localhost:9003")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer client.Close()
+    
+    // Send SMS
+    err = client.SendSMS(context.Background(), notifier.SendSMSRequest{
+        To:      "+1234567890",
+        Message: "Your verification code is: 123456",
+    })
+    
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    log.Println("SMS sent successfully")
+}
+```
+
+## Architecture
+
+The SDK is organized into packages:
+
+```
+go-sdk/
+├── auth/           # Auth service client
+│   ├── client.go
+│   ├── types.go
+│   └── errors.go
+├── notifier/       # Notifier service client
+│   ├── client.go
+│   ├── types.go
+│   └── proto/
+├── common/         # Shared utilities
+│   ├── http.go
+│   ├── context.go
+│   └── retry.go
+└── test/           # Testing utilities
+    └── mock.go
+```
+
+## Client Configuration
+
+All clients support configuration options:
+
+```go
+import "github.com/minisource/go-sdk/auth"
+
+client, err := auth.NewClient(
+    "http://localhost:9001",
+    auth.WithTimeout(30 * time.Second),
+    auth.WithRetry(3, 1*time.Second),
+    auth.WithLogger(logger),
+    auth.WithHTTPClient(customHTTPClient),
+)
+```
+
+### Available Options
+
+- **WithTimeout** - Set request timeout (default: 30s)
+- **WithRetry** - Configure retry attempts and backoff
+- **WithLogger** - Provide custom logger
+- **WithHTTPClient** - Use custom HTTP client
+- **WithInterceptor** - Add request/response interceptors
+
+## Context Propagation
+
+The SDK automatically propagates context values:
+
+```go
+ctx := context.Background()
+ctx = context.WithValue(ctx, "trace-id", "abc-123")
+ctx = context.WithValue(ctx, "user-id", "user-456")
+
+// Trace ID and User ID are automatically included in requests
+user, err := client.GetUser(ctx, "user-456")
+```
+
+## Error Handling
+
+The SDK provides structured error types:
+
+```go
+user, err := client.GetUser(ctx, "invalid-id")
+if err != nil {
+    // Type assertion for SDK errors
+    if sdkErr, ok := err.(*auth.Error); ok {
+        fmt.Printf("Status: %d\n", sdkErr.StatusCode)
+        fmt.Printf("Message: %s\n", sdkErr.Message)
+        fmt.Printf("Code: %s\n", sdkErr.Code)
+        
+        // Check specific error types
+        if sdkErr.IsNotFound() {
+            log.Println("User not found")
+        } else if sdkErr.IsUnauthorized() {
+            log.Println("Authentication required")
+        }
+    }
+    
+    return err
+}
+```
+
+### Error Types
+
+Common error types across all clients:
+
+- **NotFoundError** - Resource not found (404)
+- **UnauthorizedError** - Authentication required (401)
+- **ForbiddenError** - Permission denied (403)
+- **ValidationError** - Invalid request data (400)
+- **ServerError** - Internal server error (500)
+- **TimeoutError** - Request timeout
+- **NetworkError** - Connection failed
+
+## Retry Logic
+
+The SDK includes automatic retry for transient failures:
+
+```go
+client, err := auth.NewClient(
+    "http://localhost:9001",
+    auth.WithRetry(
+        3,                      // Max attempts
+        1*time.Second,          // Initial backoff
+        2.0,                    // Backoff multiplier
+        []int{500, 502, 503},   // Retry on these status codes
+    ),
+)
+```
+
+Retry behavior:
+- **Attempt 1**: Immediate
+- **Attempt 2**: Wait 1s
+- **Attempt 3**: Wait 2s
+- **Attempt 4**: Wait 4s
+
+## Testing
+
+The SDK provides testing utilities:
+
+```go
+import (
+    "testing"
+    
+    "github.com/minisource/go-sdk/auth"
+    "github.com/minisource/go-sdk/test"
+)
+
+func TestUserRegistration(t *testing.T) {
+    // Create mock client
+    mockClient := test.NewMockAuthClient()
+    
+    // Configure mock responses
+    mockClient.RegisterFunc = func(ctx context.Context, req auth.RegisterRequest) (*auth.User, *auth.Tokens, error) {
+        return &auth.User{
+            ID:    "mock-user-id",
+            Email: req.Email,
+        }, &auth.Tokens{
+            AccessToken: "mock-token",
+        }, nil
+    }
+    
+    // Test your code
+    user, tokens, err := mockClient.Register(context.Background(), auth.RegisterRequest{
+        Email: "test@example.com",
+    })
+    
+    if err != nil {
+        t.Fatal(err)
+    }
+    
+    if user.Email != "test@example.com" {
+        t.Errorf("Expected email test@example.com, got %s", user.Email)
+    }
+}
+```
+
+## Advanced Usage
+
+### Custom HTTP Client
+
+Use a custom HTTP client with specific settings:
+
+```go
+import (
+    "net/http"
+    "time"
+    
+    "github.com/minisource/go-sdk/auth"
+)
+
+httpClient := &http.Client{
+    Timeout: 60 * time.Second,
+    Transport: &http.Transport{
+        MaxIdleConns:        100,
+        MaxIdleConnsPerHost: 10,
+        IdleConnTimeout:     90 * time.Second,
+    },
+}
+
+client, err := auth.NewClient(
+    "http://localhost:9001",
+    auth.WithHTTPClient(httpClient),
+)
+```
+
+### Request Interceptors
+
+Add custom logic to all requests:
+
+```go
+client, err := auth.NewClient(
+    "http://localhost:9001",
+    auth.WithInterceptor(func(req *http.Request) error {
+        // Add custom headers
+        req.Header.Set("X-Api-Version", "v1")
+        req.Header.Set("X-Client-Version", "1.0.0")
+        
+        // Log requests
+        log.Printf("Request: %s %s", req.Method, req.URL)
+        
+        return nil
+    }),
+)
+```
+
+### Connection Pooling
+
+For high-throughput applications, configure connection pooling:
+
+```go
+transport := &http.Transport{
+    MaxIdleConns:        100,
+    MaxIdleConnsPerHost: 100,
+    MaxConnsPerHost:     100,
+    IdleConnTimeout:     90 * time.Second,
+}
+
+client, err := auth.NewClient(
+    "http://localhost:9001",
+    auth.WithHTTPClient(&http.Client{
+        Transport: transport,
+        Timeout:   30 * time.Second,
+    }),
+)
+```
+
+## Performance Tips
+
+<Cards>
+  <Card title="Reuse Clients" icon="Zap">
+    Create clients once and reuse them across requests
+  </Card>
+  <Card title="Connection Pooling" icon="Server">
+    Configure appropriate pool sizes for your workload
+  </Card>
+  <Card title="Context Timeout" icon="Clock">
+    Always use contexts with timeouts for long-running operations
+  </Card>
+  <Card title="Batch Operations" icon="Layers">
+    Use batch APIs when available to reduce round trips
+  </Card>
+</Cards>
+
+## Examples
+
+<Cards>
+  <Card title="Installation" href="/docs/sdk/installation">
+    Detailed installation instructions
+  </Card>
+  <Card title="Usage Guide" href="/docs/sdk/usage">
+    Complete usage examples for all services
+  </Card>
+  <Card title="Auth Examples" href="/docs/sdk/usage#auth-client">
+    Authentication and user management
+  </Card>
+  <Card title="Notifier Examples" href="/docs/sdk/usage#notifier-client">
+    Sending SMS, email, and push notifications
+  </Card>
+</Cards>
+
+## Support
+
+- **Documentation**: [https://docs.minisource.dev](https://docs.minisource.dev)
+- **GitHub**: [https://github.com/minisource/go-sdk](https://github.com/minisource/go-sdk)
+- **Issues**: [Report a bug](https://github.com/minisource/go-sdk/issues)

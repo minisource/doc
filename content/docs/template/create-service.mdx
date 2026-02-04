@@ -1,0 +1,189 @@
+---
+title: Create New Service
+description: Step-by-step guide to create a microservice from template
+icon: Plus
+---
+
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Create New Service
+
+Create a new microservice using the MiniSource template.
+
+## Creating Your Service
+
+<Steps>
+  <Step>
+    ### Clone Template
+    
+    ```bash
+    git clone https://github.com/minisource/go-template.git my-service
+    cd my-service
+    rm -rf .git
+    git init
+    ```
+  </Step>
+  
+  <Step>
+    ### Rename Service
+    
+    Update module name in `go.mod`:
+    
+    ```go
+    module github.com/yourorg/my-service
+    
+    go 1.21
+    ```
+  </Step>
+  
+  <Step>
+    ### Update Configuration
+    
+    Edit `.env`:
+    
+    ```env
+    SERVICE_NAME=my-service
+    SERVER_PORT=9005
+    
+    POSTGRES_DB=my_service_db
+    POSTGRES_USER=my_service_user
+    POSTGRES_PASSWORD=secure_password
+    ```
+  </Step>
+  
+  <Step>
+    ### Install Dependencies
+    
+    ```bash
+    go mod download
+    go mod tidy
+    ```
+  </Step>
+  
+  <Step>
+    ### Start Development Environment
+    
+    ```bash
+    docker-compose up -d postgres redis
+    make migrate-up
+    make dev
+    ```
+  </Step>
+</Steps>
+
+<Callout type="success">
+  Your service is now running on http://localhost:9005
+</Callout>
+
+## Add Your First Endpoint
+
+### 1. Define Model
+
+`internal/models/item.go`:
+```go
+package models
+
+type Item struct {
+    ID          string `json:"id" gorm:"primaryKey"`
+    Name        string `json:"name"`
+    Description string `json:"description"`
+    CreatedAt   int64  `json:"createdAt" gorm:"autoCreateTime"`
+}
+```
+
+### 2. Create Repository
+
+`internal/repository/item_repository.go`:
+```go
+package repository
+
+import "gorm.io/gorm"
+
+type ItemRepository struct {
+    db *gorm.DB
+}
+
+func NewItemRepository(db *gorm.DB) *ItemRepository {
+    return &ItemRepository{db: db}
+}
+
+func (r *ItemRepository) Create(item *models.Item) error {
+    return r.db.Create(item).Error
+}
+
+func (r *ItemRepository) FindAll() ([]models.Item, error) {
+    var items []models.Item
+    err := r.db.Find(&items).Error
+    return items, err
+}
+```
+
+### 3. Create Handler
+
+`internal/handler/item_handler.go`:
+```go
+package handler
+
+import (
+    "github.com/gofiber/fiber/v2"
+    "github.com/minisource/go-common/response"
+)
+
+type ItemHandler struct {
+    repo *repository.ItemRepository
+}
+
+func NewItemHandler(repo *repository.ItemRepository) *ItemHandler {
+    return &ItemHandler{repo: repo}
+}
+
+func (h *ItemHandler) Create(c *fiber.Ctx) error {
+    var item models.Item
+    if err := c.BodyParser(&item); err != nil {
+        return c.Status(400).JSON(response.Error("Invalid input"))
+    }
+    
+    if err := h.repo.Create(&item); err != nil {
+        return c.Status(500).JSON(response.Error("Failed to create item"))
+    }
+    
+    return c.Status(201).JSON(response.Success(item))
+}
+
+func (h *ItemHandler) List(c *fiber.Ctx) error {
+    items, err := h.repo.FindAll()
+    if err != nil {
+        return c.Status(500).JSON(response.Error("Failed to fetch items"))
+    }
+    
+    return c.JSON(response.Success(items))
+}
+```
+
+### 4. Register Routes
+
+`api/router/router.go`:
+```go
+v1.Post("/items", itemHandler.Create)
+v1.Get("/items", itemHandler.List)
+```
+
+### 5. Test Your Endpoint
+
+```bash
+# Create item
+curl -X POST http://localhost:9005/api/v1/items \
+  -H "Content-Type: application/json" \
+  -d '{"name": "Test Item", "description": "My first item"}'
+
+# List items
+curl http://localhost:9005/api/v1/items
+```
+
+## Next Steps
+
+- Add [Authentication](/docs/auth) to your endpoints
+- Integrate [Notifications](/docs/notifier) for alerts
+- Set up [CI/CD](/docs/deployment/cicd) pipeline
+- Deploy to [Production](/docs/deployment/production)

@@ -1,0 +1,621 @@
+---
+title: SDK Usage Guide
+description: Complete examples for using the MiniSource Go SDK
+icon: BookOpen
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+# SDK Usage Guide
+
+Comprehensive examples for integrating MiniSource services into your Go applications.
+
+## Auth Client
+
+### Initialize Client
+
+```go
+package main
+
+import (
+    "time"
+    
+    "github.com/minisource/go-sdk/auth"
+)
+
+func main() {
+    client, err := auth.NewClient(
+        "http://localhost:9001",
+        auth.WithTimeout(30 * time.Second),
+        auth.WithRetry(3, 1*time.Second),
+    )
+    if err != nil {
+        panic(err)
+    }
+    
+    // Use client...
+}
+```
+
+### User Registration
+
+```go
+func registerUser(client *auth.Client) error {
+    ctx := context.Background()
+    
+    user, tokens, err := client.Register(ctx, auth.RegisterRequest{
+        Email:     "john.doe@example.com",
+        Password:  "SecurePass123!",
+        Phone:     "+1234567890",
+        FirstName: "John",
+        LastName:  "Doe",
+    })
+    
+    if err != nil {
+        return fmt.Errorf("registration failed: %w", err)
+    }
+    
+    fmt.Printf("User ID: %s\n", user.ID)
+    fmt.Printf("Access Token: %s\n", tokens.AccessToken)
+    fmt.Printf("Expires In: %d seconds\n", tokens.ExpiresIn)
+    
+    return nil
+}
+```
+
+### User Login
+
+```go
+func loginUser(client *auth.Client) (*auth.Tokens, error) {
+    ctx := context.Background()
+    
+    tokens, err := client.Login(ctx, auth.LoginRequest{
+        Email:    "john.doe@example.com",
+        Password: "SecurePass123!",
+    })
+    
+    if err != nil {
+        return nil, fmt.Errorf("login failed: %w", err)
+    }
+    
+    return tokens, nil
+}
+```
+
+### OTP Authentication
+
+Request OTP code:
+
+```go
+func requestOTP(client *auth.Client, phone string) error {
+    ctx := context.Background()
+    
+    err := client.RequestOTP(ctx, auth.OTPRequest{
+        Phone:   phone,
+        Channel: "sms", // or "whatsapp", "call"
+    })
+    
+    if err != nil {
+        return fmt.Errorf("OTP request failed: %w", err)
+    }
+    
+    fmt.Println("OTP sent successfully")
+    return nil
+}
+```
+
+Verify OTP code:
+
+```go
+func verifyOTP(client *auth.Client, phone, code string) (*auth.Tokens, error) {
+    ctx := context.Background()
+    
+    tokens, err := client.VerifyOTP(ctx, auth.OTPVerifyRequest{
+        Phone: phone,
+        Code:  code,
+    })
+    
+    if err != nil {
+        return nil, fmt.Errorf("OTP verification failed: %w", err)
+    }
+    
+    return tokens, nil
+}
+```
+
+### Token Refresh
+
+```go
+func refreshToken(client *auth.Client, refreshToken string) (*auth.Tokens, error) {
+    ctx := context.Background()
+    
+    newTokens, err := client.RefreshToken(ctx, auth.RefreshRequest{
+        RefreshToken: refreshToken,
+    })
+    
+    if err != nil {
+        return nil, fmt.Errorf("token refresh failed: %w", err)
+    }
+    
+    return newTokens, nil
+}
+```
+
+### Get Current User
+
+```go
+func getCurrentUser(client *auth.Client, accessToken string) (*auth.User, error) {
+    ctx := context.Background()
+    
+    // Set the access token
+    client.SetToken(accessToken)
+    
+    user, err := client.GetMe(ctx)
+    if err != nil {
+        return nil, fmt.Errorf("get user failed: %w", err)
+    }
+    
+    fmt.Printf("User: %s %s (%s)\n", user.FirstName, user.LastName, user.Email)
+    return user, nil
+}
+```
+
+### Update User Profile
+
+```go
+func updateProfile(client *auth.Client, accessToken string) error {
+    ctx := context.Background()
+    client.SetToken(accessToken)
+    
+    user, err := client.UpdateMe(ctx, auth.UpdateUserRequest{
+        FirstName: stringPtr("Jane"),
+        LastName:  stringPtr("Smith"),
+        Avatar:    stringPtr("https://example.com/avatar.jpg"),
+    })
+    
+    if err != nil {
+        return fmt.Errorf("update failed: %w", err)
+    }
+    
+    fmt.Printf("Updated: %s %s\n", user.FirstName, user.LastName)
+    return nil
+}
+
+func stringPtr(s string) *string {
+    return &s
+}
+```
+
+### Change Password
+
+```go
+func changePassword(client *auth.Client, accessToken string) error {
+    ctx := context.Background()
+    client.SetToken(accessToken)
+    
+    err := client.ChangePassword(ctx, auth.ChangePasswordRequest{
+        OldPassword: "OldSecurePass123!",
+        NewPassword: "NewSecurePass456!",
+    })
+    
+    if err != nil {
+        return fmt.Errorf("password change failed: %w", err)
+    }
+    
+    fmt.Println("Password changed successfully")
+    return nil
+}
+```
+
+### Logout
+
+```go
+func logout(client *auth.Client, accessToken string) error {
+    ctx := context.Background()
+    client.SetToken(accessToken)
+    
+    err := client.Logout(ctx)
+    if err != nil {
+        return fmt.Errorf("logout failed: %w", err)
+    }
+    
+    fmt.Println("Logged out successfully")
+    return nil
+}
+```
+
+## Notifier Client
+
+### Initialize gRPC Client
+
+```go
+package main
+
+import (
+    "github.com/minisource/go-sdk/notifier"
+)
+
+func main() {
+    client, err := notifier.NewClient("localhost:9003")
+    if err != nil {
+        panic(err)
+    }
+    defer client.Close()
+    
+    // Use client...
+}
+```
+
+### Send SMS
+
+```go
+func sendSMS(client *notifier.Client) error {
+    ctx := context.Background()
+    
+    result, err := client.SendSMS(ctx, notifier.SendSMSRequest{
+        To:       "+1234567890",
+        Message:  "Your verification code is: 123456",
+        Provider: "twilio", // optional, uses default if not specified
+    })
+    
+    if err != nil {
+        return fmt.Errorf("SMS send failed: %w", err)
+    }
+    
+    fmt.Printf("SMS sent successfully. ID: %s\n", result.MessageID)
+    return nil
+}
+```
+
+### Send SMS with Template
+
+```go
+func sendSMSWithTemplate(client *notifier.Client) error {
+    ctx := context.Background()
+    
+    result, err := client.SendSMS(ctx, notifier.SendSMSRequest{
+        To:           "+1234567890",
+        TemplateCode: "otp_verification",
+        TemplateData: map[string]string{
+            "code":   "123456",
+            "expiry": "5 minutes",
+        },
+    })
+    
+    if err != nil {
+        return fmt.Errorf("SMS send failed: %w", err)
+    }
+    
+    fmt.Printf("SMS sent. ID: %s\n", result.MessageID)
+    return nil
+}
+```
+
+### Send Email
+
+```go
+func sendEmail(client *notifier.Client) error {
+    ctx := context.Background()
+    
+    result, err := client.SendEmail(ctx, notifier.SendEmailRequest{
+        To:      []string{"user@example.com"},
+        Subject: "Welcome to MiniSource",
+        Body:    "<h1>Welcome!</h1><p>Thank you for joining us.</p>",
+        IsHTML:  true,
+    })
+    
+    if err != nil {
+        return fmt.Errorf("email send failed: %w", err)
+    }
+    
+    fmt.Printf("Email sent. ID: %s\n", result.MessageID)
+    return nil
+}
+```
+
+### Send Email with Attachments
+
+```go
+func sendEmailWithAttachment(client *notifier.Client) error {
+    ctx := context.Background()
+    
+    result, err := client.SendEmail(ctx, notifier.SendEmailRequest{
+        To:      []string{"user@example.com"},
+        Subject: "Your invoice",
+        Body:    "Please find your invoice attached.",
+        Attachments: []notifier.Attachment{
+            {
+                Filename: "invoice.pdf",
+                Content:  []byte{/* PDF bytes */},
+                MimeType: "application/pdf",
+            },
+        },
+    })
+    
+    if err != nil {
+        return fmt.Errorf("email send failed: %w", err)
+    }
+    
+    fmt.Printf("Email sent with attachment. ID: %s\n", result.MessageID)
+    return nil
+}
+```
+
+### Send Push Notification
+
+```go
+func sendPushNotification(client *notifier.Client) error {
+    ctx := context.Background()
+    
+    result, err := client.SendPush(ctx, notifier.SendPushRequest{
+        Tokens: []string{"device-token-1", "device-token-2"},
+        Title:  "New Message",
+        Body:   "You have a new message from John",
+        Data: map[string]string{
+            "messageId": "msg-123",
+            "senderId":  "user-456",
+        },
+    })
+    
+    if err != nil {
+        return fmt.Errorf("push notification failed: %w", err)
+    }
+    
+    fmt.Printf("Push sent. Successful: %d, Failed: %d\n", 
+        result.SuccessCount, result.FailureCount)
+    return nil
+}
+```
+
+### Create In-App Notification
+
+```go
+func createNotification(client *notifier.Client) error {
+    ctx := context.Background()
+    
+    notification, err := client.CreateNotification(ctx, notifier.CreateNotificationRequest{
+        UserID:  "user-123",
+        Title:   "Welcome!",
+        Message: "Thank you for joining MiniSource",
+        Type:    "welcome",
+        Data: map[string]interface{}{
+            "action": "open_profile",
+        },
+    })
+    
+    if err != nil {
+        return fmt.Errorf("notification creation failed: %w", err)
+    }
+    
+    fmt.Printf("Notification created. ID: %s\n", notification.ID)
+    return nil
+}
+```
+
+### List User Notifications
+
+```go
+func listNotifications(client *notifier.Client, userID string) error {
+    ctx := context.Background()
+    
+    notifications, err := client.ListNotifications(ctx, notifier.ListNotificationsRequest{
+        UserID:   userID,
+        Page:     1,
+        PageSize: 20,
+        Unread:   boolPtr(true), // Only unread notifications
+    })
+    
+    if err != nil {
+        return fmt.Errorf("list notifications failed: %w", err)
+    }
+    
+    fmt.Printf("Found %d notifications\n", len(notifications.Items))
+    for _, notif := range notifications.Items {
+        fmt.Printf("- %s: %s\n", notif.Title, notif.Message)
+    }
+    
+    return nil
+}
+
+func boolPtr(b bool) *bool {
+    return &b
+}
+```
+
+### Mark Notification as Read
+
+```go
+func markNotificationRead(client *notifier.Client, notificationID string) error {
+    ctx := context.Background()
+    
+    err := client.MarkAsRead(ctx, notificationID)
+    if err != nil {
+        return fmt.Errorf("mark as read failed: %w", err)
+    }
+    
+    fmt.Println("Notification marked as read")
+    return nil
+}
+```
+
+## Complete Example: User Registration with OTP
+
+Here's a complete example combining Auth and Notifier clients:
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    "time"
+    
+    "github.com/minisource/go-sdk/auth"
+    "github.com/minisource/go-sdk/notifier"
+)
+
+func main() {
+    // Initialize clients
+    authClient, err := auth.NewClient("http://localhost:9001")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    notifierClient, err := notifier.NewClient("localhost:9003")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer notifierClient.Close()
+    
+    // Run registration flow
+    if err := registrationFlow(authClient, notifierClient); err != nil {
+        log.Fatal(err)
+    }
+}
+
+func registrationFlow(authClient *auth.Client, notifierClient *notifier.Client) error {
+    ctx := context.Background()
+    phone := "+1234567890"
+    
+    // Step 1: Request OTP
+    fmt.Println("Step 1: Requesting OTP...")
+    err := authClient.RequestOTP(ctx, auth.OTPRequest{
+        Phone:   phone,
+        Channel: "sms",
+    })
+    if err != nil {
+        return fmt.Errorf("OTP request failed: %w", err)
+    }
+    fmt.Println("✓ OTP sent to phone")
+    
+    // Step 2: User enters OTP (simulated)
+    time.Sleep(2 * time.Second)
+    otpCode := "123456" // In real app, get from user input
+    
+    // Step 3: Verify OTP
+    fmt.Println("\nStep 2: Verifying OTP...")
+    tokens, err := authClient.VerifyOTP(ctx, auth.OTPVerifyRequest{
+        Phone: phone,
+        Code:  otpCode,
+    })
+    if err != nil {
+        return fmt.Errorf("OTP verification failed: %w", err)
+    }
+    fmt.Println("✓ OTP verified")
+    
+    // Step 4: Complete registration
+    fmt.Println("\nStep 3: Completing registration...")
+    authClient.SetToken(tokens.AccessToken)
+    
+    user, err := authClient.UpdateMe(ctx, auth.UpdateUserRequest{
+        FirstName: stringPtr("John"),
+        LastName:  stringPtr("Doe"),
+    })
+    if err != nil {
+        return fmt.Errorf("profile update failed: %w", err)
+    }
+    fmt.Printf("✓ Registration complete for %s %s\n", user.FirstName, user.LastName)
+    
+    // Step 5: Send welcome notification
+    fmt.Println("\nStep 4: Sending welcome notification...")
+    _, err = notifierClient.CreateNotification(ctx, notifier.CreateNotificationRequest{
+        UserID:  user.ID,
+        Title:   "Welcome to MiniSource!",
+        Message: "Your account has been created successfully.",
+        Type:    "welcome",
+    })
+    if err != nil {
+        return fmt.Errorf("notification failed: %w", err)
+    }
+    fmt.Println("✓ Welcome notification sent")
+    
+    // Step 6: Send welcome email
+    fmt.Println("\nStep 5: Sending welcome email...")
+    _, err = notifierClient.SendEmail(ctx, notifier.SendEmailRequest{
+        To:      []string{user.Email},
+        Subject: "Welcome to MiniSource",
+        Body:    fmt.Sprintf("<h1>Welcome %s!</h1><p>Thank you for joining us.</p>", user.FirstName),
+        IsHTML:  true,
+    })
+    if err != nil {
+        return fmt.Errorf("email failed: %w", err)
+    }
+    fmt.Println("✓ Welcome email sent")
+    
+    fmt.Println("\n🎉 Registration flow completed successfully!")
+    return nil
+}
+
+func stringPtr(s string) *string {
+    return &s
+}
+```
+
+Output:
+```
+Step 1: Requesting OTP...
+✓ OTP sent to phone
+
+Step 2: Verifying OTP...
+✓ OTP verified
+
+Step 3: Completing registration...
+✓ Registration complete for John Doe
+
+Step 4: Sending welcome notification...
+✓ Welcome notification sent
+
+Step 5: Sending welcome email...
+✓ Welcome email sent
+
+🎉 Registration flow completed successfully!
+```
+
+## Error Handling Best Practices
+
+```go
+func handleSDKErrors(client *auth.Client) {
+    ctx := context.Background()
+    
+    user, err := client.GetUser(ctx, "invalid-id")
+    if err != nil {
+        // Check specific error types
+        if authErr, ok := err.(*auth.Error); ok {
+            switch {
+            case authErr.IsNotFound():
+                fmt.Println("User not found")
+            case authErr.IsUnauthorized():
+                fmt.Println("Please login first")
+            case authErr.IsForbidden():
+                fmt.Println("You don't have permission")
+            case authErr.IsValidation():
+                fmt.Printf("Invalid input: %s\n", authErr.Message)
+            case authErr.IsServer():
+                fmt.Println("Server error, please try again")
+            default:
+                fmt.Printf("Error: %s\n", authErr.Message)
+            }
+        } else {
+            // Network or other errors
+            fmt.Printf("Request failed: %v\n", err)
+        }
+        
+        return
+    }
+    
+    // Success
+    fmt.Printf("User: %s\n", user.Email)
+}
+```
+
+<Callout type="info">
+  Always check error types to provide appropriate user feedback and handle failures gracefully.
+</Callout>
+
+## Next Steps
+
+- Explore [Auth API Reference](/docs/auth/api-reference) for all endpoints
+- Learn about [JWT Tokens](/docs/auth/jwt-tokens) for authentication
+- Check [Notifier Documentation](/docs/notifier) for notification features

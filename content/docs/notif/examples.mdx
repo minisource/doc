@@ -1,0 +1,420 @@
+---
+title: Examples
+description: Code examples for using the Notifier service
+---
+
+# Examples
+
+## REST API Examples
+
+### Send SMS Notification
+
+```bash
+curl -X POST http://localhost:9002/api/v1/notifications \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "user-123",
+    "type": "sms",
+    "priority": "high",
+    "recipientPhone": "+1234567890",
+    "body": "Your verification code is 123456"
+  }'
+```
+
+### Send Email with Template
+
+```bash
+curl -X POST http://localhost:9002/api/v1/notifications \
+  -H "Content-Type: application/json" \
+  -d '{
+    "userId": "user-123",
+    "type": "email",
+    "recipientEmail": "user@example.com",
+    "templateId": "welcome-email",
+    "metadata": {
+      "userName": "John Doe",
+      "verificationUrl": "https://example.com/verify/abc123"
+    }
+  }'
+```
+
+### Batch Notifications
+
+```bash
+curl -X POST http://localhost:9002/api/v1/notifications/batch \
+  -H "Content-Type: application/json" \
+  -d '{
+    "notifications": [
+      {
+        "userId": "user-1",
+        "type": "push",
+        "body": "New message from Admin"
+      },
+      {
+        "userId": "user-2",
+        "type": "push",
+        "body": "New message from Admin"
+      }
+    ]
+  }'
+```
+
+### Get User Notifications
+
+```bash
+curl http://localhost:9002/api/v1/notifications/user/user-123?page=1&pageSize=20
+```
+
+### Update User Preferences
+
+```bash
+curl -X PUT http://localhost:9002/api/v1/preferences/user/user-123 \
+  -H "Content-Type: application/json" \
+  -d '{
+    "type": "email",
+    "isEnabled": true,
+    "allowDigest": true,
+    "digestFrequency": "daily"
+  }'
+```
+
+## Go Client Examples
+
+### Using REST Client
+
+```go
+package main
+
+import (
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "net/http"
+)
+
+type NotificationRequest struct {
+    UserID         string            `json:"userId"`
+    Type           string            `json:"type"`
+    RecipientPhone string            `json:"recipientPhone,omitempty"`
+    RecipientEmail string            `json:"recipientEmail,omitempty"`
+    Subject        string            `json:"subject,omitempty"`
+    Body           string            `json:"body"`
+    Metadata       map[string]string `json:"metadata,omitempty"`
+}
+
+func main() {
+    req := NotificationRequest{
+        UserID:         "user-123",
+        Type:           "sms",
+        RecipientPhone: "+1234567890",
+        Body:           "Hello from Go!",
+    }
+
+    jsonData, _ := json.Marshal(req)
+    
+    resp, err := http.Post(
+        "http://localhost:9002/api/v1/notifications",
+        "application/json",
+        bytes.NewBuffer(jsonData),
+    )
+    
+    if err != nil {
+        panic(err)
+    }
+    defer resp.Body.Close()
+    
+    if resp.StatusCode == http.StatusCreated {
+        fmt.Println("Notification sent successfully!")
+    }
+}
+```
+
+### Using gRPC Client
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    "time"
+
+    pb "github.com/minisource/go-sdk/notifier"
+    "google.golang.org/grpc"
+    "google.golang.org/grpc/credentials/insecure"
+)
+
+func main() {
+    // Connect to gRPC server
+    conn, err := grpc.Dial(
+        "localhost:9003",
+        grpc.WithTransportCredentials(insecure.NewCredentials()),
+    )
+    if err != nil {
+        log.Fatalf("Failed to connect: %v", err)
+    }
+    defer conn.Close()
+
+    client := pb.NewNotificationServiceClient(conn)
+
+    // Create notification
+    ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+    defer cancel()
+
+    resp, err := client.CreateNotification(ctx, &pb.CreateNotificationRequest{
+        UserId:         "user-123",
+        Type:           pb.NotificationType_NOTIFICATION_TYPE_SMS,
+        Priority:       pb.NotificationPriority_NOTIFICATION_PRIORITY_HIGH,
+        RecipientPhone: "+1234567890",
+        Body:           "Hello from gRPC!",
+    })
+
+    if err != nil {
+        log.Fatalf("Failed to create notification: %v", err)
+    }
+
+    log.Printf("Notification created: %s", resp.NotificationId)
+}
+```
+
+### Stream Notifications
+
+```go
+func streamNotifications(client pb.NotificationServiceClient, userID string) {
+    stream, err := client.StreamNotifications(
+        context.Background(),
+        &pb.StreamNotificationsRequest{UserId: userID},
+    )
+    if err != nil {
+        log.Fatal(err)
+    }
+
+    for {
+        notification, err := stream.Recv()
+        if err != nil {
+            log.Fatal(err)
+        }
+        
+        log.Printf("Received: %s - %s", notification.Type, notification.Body)
+    }
+}
+```
+
+## JavaScript/TypeScript Examples
+
+### Using Fetch API
+
+```typescript
+interface NotificationRequest {
+  userId: string;
+  type: 'sms' | 'email' | 'push' | 'in_app';
+  recipientEmail?: string;
+  recipientPhone?: string;
+  subject?: string;
+  body: string;
+  metadata?: Record<string, string>;
+}
+
+async function sendNotification(req: NotificationRequest) {
+  const response = await fetch('http://localhost:9002/api/v1/notifications', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(req),
+  });
+
+  if (!response.ok) {
+    throw new Error(`HTTP error! status: ${response.status}`);
+  }
+
+  const data = await response.json();
+  console.log('Notification sent:', data.result.id);
+  return data;
+}
+
+// Usage
+sendNotification({
+  userId: 'user-123',
+  type: 'email',
+  recipientEmail: 'user@example.com',
+  subject: 'Welcome!',
+  body: 'Thanks for joining!',
+}).catch(console.error);
+```
+
+### WebSocket Connection
+
+```typescript
+const ws = new WebSocket('ws://localhost:9002/ws');
+
+ws.onopen = () => {
+  console.log('Connected to notification stream');
+  
+  // Send authentication (implement your auth logic)
+  ws.send(JSON.stringify({
+    type: 'auth',
+    token: 'your-jwt-token',
+    userId: 'user-123',
+  }));
+};
+
+ws.onmessage = (event) => {
+  const notification = JSON.parse(event.data);
+  console.log('New notification:', notification);
+  
+  // Show notification to user
+  showNotificationUI(notification);
+};
+
+ws.onerror = (error) => {
+  console.error('WebSocket error:', error);
+};
+
+ws.onclose = () => {
+  console.log('Disconnected from notification stream');
+  // Implement reconnection logic
+};
+```
+
+## Python Examples
+
+### Using Requests
+
+```python
+import requests
+
+def send_notification(user_id, notification_type, body, **kwargs):
+    url = "http://localhost:9002/api/v1/notifications"
+    
+    payload = {
+        "userId": user_id,
+        "type": notification_type,
+        "body": body,
+        **kwargs
+    }
+    
+    response = requests.post(url, json=payload)
+    response.raise_for_status()
+    
+    return response.json()
+
+# Usage
+result = send_notification(
+    user_id="user-123",
+    notification_type="sms",
+    body="Hello from Python!",
+    recipientPhone="+1234567890"
+)
+
+print(f"Notification ID: {result['result']['id']}")
+```
+
+### Using gRPC
+
+```python
+import grpc
+from notifier.v1 import notifier_pb2, notifier_pb2_grpc
+
+def create_notification():
+    channel = grpc.insecure_channel('localhost:9003')
+    stub = notifier_pb2_grpc.NotificationServiceStub(channel)
+    
+    request = notifier_pb2.CreateNotificationRequest(
+        user_id="user-123",
+        type=notifier_pb2.NOTIFICATION_TYPE_SMS,
+        recipient_phone="+1234567890",
+        body="Hello from Python gRPC!"
+    )
+    
+    response = stub.CreateNotification(request)
+    print(f"Notification created: {response.notification_id}")
+
+create_notification()
+```
+
+## Docker Compose Example
+
+```yaml
+version: '3.8'
+
+services:
+  notifier:
+    image: minisource/notifier:latest
+    ports:
+      - "9002:9002"
+      - "9003:9003"
+    environment:
+      - POSTGRES_HOST=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DBNAME=notifier_db
+      - WORKER_NUM_WORKERS=20
+    depends_on:
+      - postgres
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=notifier_db
+    volumes:
+      - notifier_data:/var/lib/postgresql/data
+
+volumes:
+  notifier_data:
+```
+
+## Kubernetes Example
+
+```yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notifier
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: notifier
+  template:
+    metadata:
+      labels:
+        app: notifier
+    spec:
+      containers:
+      - name: notifier
+        image: minisource/notifier:latest
+        ports:
+        - containerPort: 9002
+          name: http
+        - containerPort: 9003
+          name: grpc
+        env:
+        - name: POSTGRES_HOST
+          value: postgres-service
+        - name: POSTGRES_USER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: username
+        - name: POSTGRES_PASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: password
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notifier-service
+spec:
+  selector:
+    app: notifier
+  ports:
+  - name: http
+    port: 80
+    targetPort: 9002
+  - name: grpc
+    port: 9003
+    targetPort: 9003
+```

@@ -1,0 +1,90 @@
+---
+title: Database Utilities
+description: Database connection and patterns in go-common
+icon: Database
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Database Utilities
+
+Database connection management and common patterns.
+
+## Connection
+
+### PostgreSQL
+
+```go
+import "github.com/minisource/go-common/db"
+
+// Connect to database
+db, err := db.NewPostgresConnection(db.Config{
+    Host:     "localhost",
+    Port:     5432,
+    User:     "user",
+    Password: "password",
+    Database: "mydb",
+    SSLMode:  "disable",
+    MaxOpenConns: 25,
+    MaxIdleConns: 5,
+    ConnMaxLifetime: 5 * time.Minute,
+})
+
+if err != nil {
+    log.Fatal(err)
+}
+
+defer db.Close()
+```
+
+## Repository Pattern
+
+```go
+type UserRepository struct {
+    db *gorm.DB
+}
+
+func NewUserRepository(db *gorm.DB) *UserRepository {
+    return &UserRepository{db: db}
+}
+
+func (r *UserRepository) FindByID(id string) (*User, error) {
+    var user User
+    err := r.db.First(&user, "id = ?", id).Error
+    return &user, err
+}
+
+func (r *UserRepository) Create(user *User) error {
+    return r.db.Create(user).Error
+}
+```
+
+## Migrations
+
+Run migrations with golang-migrate:
+
+```bash
+migrate -path migrations -database "postgres://user:pass@localhost:5432/db?sslmode=disable" up
+```
+
+## Transactions
+
+```go
+func (r *UserRepository) Transfer(from, to string, amount float64) error {
+    return r.db.Transaction(func(tx *gorm.DB) error {
+        // Deduct from sender
+        if err := tx.Model(&Account{}).Where("id = ?", from).
+            Update("balance", gorm.Expr("balance - ?", amount)).Error; err != nil {
+            return err
+        }
+        
+        // Add to receiver
+        if err := tx.Model(&Account{}).Where("id = ?", to).
+            Update("balance", gorm.Expr("balance + ?", amount)).Error; err != nil {
+            return err
+        }
+        
+        return nil
+    })
+}
+```

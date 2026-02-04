@@ -1,0 +1,299 @@
+---
+title: gRPC API Reference
+description: Complete gRPC API documentation for the Notifier service
+---
+
+# gRPC API Reference
+
+Server Address: `localhost:9003`
+
+## Services
+
+The Notifier service provides three main gRPC services:
+
+1. **NotificationService** - Notification management
+2. **TemplateService** - Template management
+3. **PreferenceService** - User preferences management
+
+## Proto Definition
+
+```protobuf
+syntax = "proto3";
+
+package notifier.v1;
+
+option go_package = "github.com/minisource/notifier/proto/notifier/v1;notifierv1";
+```
+
+## NotificationService
+
+### CreateNotification
+
+Create a single notification.
+
+```protobuf
+rpc CreateNotification(CreateNotificationRequest) returns (CreateNotificationResponse);
+```
+
+**Request:**
+
+```protobuf
+message CreateNotificationRequest {
+  string user_id = 1;
+  NotificationType type = 2;
+  NotificationPriority priority = 3;
+  string recipient_email = 4;
+  string recipient_phone = 5;
+  string subject = 7;
+  string body = 8;
+  map<string, string> metadata = 9;
+  string template_id = 10;
+  google.protobuf.Timestamp scheduled_at = 11;
+}
+```
+
+**Response:**
+
+```protobuf
+message CreateNotificationResponse {
+  string notification_id = 1;
+  bool success = 2;
+  string message = 3;
+}
+```
+
+### CreateBatchNotifications
+
+Create multiple notifications at once.
+
+```protobuf
+rpc CreateBatchNotifications(CreateBatchNotificationsRequest) 
+    returns (CreateBatchNotificationsResponse);
+```
+
+### GetUserNotifications
+
+Retrieve paginated notifications for a user.
+
+```protobuf
+rpc GetUserNotifications(GetUserNotificationsRequest) 
+    returns (GetUserNotificationsResponse);
+```
+
+**Request:**
+
+```protobuf
+message GetUserNotificationsRequest {
+  string user_id = 1;
+  int32 page = 2;
+  int32 page_size = 3;
+}
+```
+
+**Response:**
+
+```protobuf
+message GetUserNotificationsResponse {
+  repeated Notification notifications = 1;
+  int64 total = 2;
+  int32 page = 3;
+  int32 page_size = 4;
+  int32 total_pages = 5;
+}
+```
+
+### StreamNotifications
+
+Stream real-time notifications (server streaming).
+
+```protobuf
+rpc StreamNotifications(StreamNotificationsRequest) 
+    returns (stream Notification);
+```
+
+**Example Client (Go):**
+
+```go
+package main
+
+import (
+    "context"
+    "log"
+    
+    pb "github.com/minisource/notifier/proto/notifier/v1"
+    "google.golang.org/grpc"
+)
+
+func main() {
+    conn, err := grpc.Dial("localhost:9003", grpc.WithInsecure())
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer conn.Close()
+    
+    client := pb.NewNotificationServiceClient(conn)
+    
+    // Create notification
+    resp, err := client.CreateNotification(context.Background(), &pb.CreateNotificationRequest{
+        UserId: "user-id",
+        Type:   pb.NotificationType_NOTIFICATION_TYPE_SMS,
+        Body:   "Hello World!",
+        RecipientPhone: "+1234567890",
+    })
+    
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    log.Printf("Notification created: %s", resp.NotificationId)
+    
+    // Stream notifications
+    stream, err := client.StreamNotifications(context.Background(), &pb.StreamNotificationsRequest{
+        UserId: "user-id",
+    })
+    
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    for {
+        notification, err := stream.Recv()
+        if err != nil {
+            log.Fatal(err)
+        }
+        log.Printf("Received notification: %v", notification)
+    }
+}
+```
+
+## Enums
+
+### NotificationType
+
+```protobuf
+enum NotificationType {
+  NOTIFICATION_TYPE_UNSPECIFIED = 0;
+  NOTIFICATION_TYPE_SMS = 1;
+  NOTIFICATION_TYPE_EMAIL = 2;
+  NOTIFICATION_TYPE_PUSH = 3;
+  NOTIFICATION_TYPE_IN_APP = 4;
+}
+```
+
+### NotificationStatus
+
+```protobuf
+enum NotificationStatus {
+  NOTIFICATION_STATUS_UNSPECIFIED = 0;
+  NOTIFICATION_STATUS_PENDING = 1;
+  NOTIFICATION_STATUS_SENDING = 2;
+  NOTIFICATION_STATUS_SENT = 3;
+  NOTIFICATION_STATUS_FAILED = 4;
+  NOTIFICATION_STATUS_RETRYING = 5;
+  NOTIFICATION_STATUS_CANCELED = 6;
+}
+```
+
+### NotificationPriority
+
+```protobuf
+enum NotificationPriority {
+  NOTIFICATION_PRIORITY_UNSPECIFIED = 0;
+  NOTIFICATION_PRIORITY_LOW = 1;
+  NOTIFICATION_PRIORITY_NORMAL = 2;
+  NOTIFICATION_PRIORITY_HIGH = 3;
+  NOTIFICATION_PRIORITY_URGENT = 4;
+}
+```
+
+## TemplateService
+
+### CreateTemplate
+
+```protobuf
+rpc CreateTemplate(CreateTemplateRequest) returns (CreateTemplateResponse);
+```
+
+### GetTemplate
+
+```protobuf
+rpc GetTemplate(GetTemplateRequest) returns (GetTemplateResponse);
+```
+
+### UpdateTemplate
+
+```protobuf
+rpc UpdateTemplate(UpdateTemplateRequest) returns (UpdateTemplateResponse);
+```
+
+### DeleteTemplate
+
+```protobuf
+rpc DeleteTemplate(DeleteTemplateRequest) returns (DeleteTemplateResponse);
+```
+
+## PreferenceService
+
+### GetUserPreferences
+
+```protobuf
+rpc GetUserPreferences(GetUserPreferencesRequest) 
+    returns (GetUserPreferencesResponse);
+```
+
+### UpdatePreference
+
+```protobuf
+rpc UpdatePreference(UpdatePreferenceRequest) 
+    returns (UpdatePreferenceResponse);
+```
+
+## Error Handling
+
+gRPC errors use standard status codes:
+
+- `OK` (0) - Success
+- `INVALID_ARGUMENT` (3) - Invalid request parameters
+- `NOT_FOUND` (5) - Resource not found
+- `ALREADY_EXISTS` (6) - Resource already exists
+- `INTERNAL` (13) - Internal server error
+- `UNAVAILABLE` (14) - Service unavailable
+
+**Example Error Handling (Go):**
+
+```go
+import (
+    "google.golang.org/grpc/codes"
+    "google.golang.org/grpc/status"
+)
+
+resp, err := client.CreateNotification(ctx, req)
+if err != nil {
+    st, ok := status.FromError(err)
+    if ok {
+        switch st.Code() {
+        case codes.InvalidArgument:
+            log.Printf("Invalid request: %s", st.Message())
+        case codes.NotFound:
+            log.Printf("Not found: %s", st.Message())
+        default:
+            log.Printf("Error: %s", st.Message())
+        }
+    }
+}
+```
+
+## Client Libraries
+
+Generate client code for your language:
+
+```bash
+# Go
+protoc --go_out=. --go-grpc_out=. proto/notifier/v1/notifier.proto
+
+# Python
+python -m grpc_tools.protoc -I. --python_out=. --grpc_python_out=. proto/notifier/v1/notifier.proto
+
+# JavaScript/TypeScript
+protoc --js_out=import_style=commonjs:. --grpc-web_out=import_style=typescript,mode=grpcwebtext:. proto/notifier/v1/notifier.proto
+```

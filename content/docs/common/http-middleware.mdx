@@ -1,0 +1,123 @@
+---
+title: HTTP Middleware
+description: Available middleware in go-common library
+icon: Filter
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# HTTP Middleware
+
+The go-common library provides production-ready middleware for Fiber applications.
+
+## Available Middleware
+
+### Authentication Middleware
+
+Validate JWT tokens and extract user information.
+
+```go
+import "github.com/minisource/go-common/http/middleware"
+
+// Require authentication
+app.Use(middleware.Auth(middleware.AuthConfig{
+    JWTSecret: "your-secret-key",
+    Required:  true,
+}))
+
+// Optional authentication
+app.Use(middleware.Auth(middleware.AuthConfig{
+    JWTSecret: "your-secret-key",
+    Required:  false,
+}))
+```
+
+### CORS Middleware
+
+Handle Cross-Origin Resource Sharing.
+
+```go
+app.Use(middleware.CORS(middleware.CORSConfig{
+    AllowOrigins: []string{"https://example.com"},
+    AllowMethods: []string{"GET", "POST", "PUT", "DELETE"},
+    AllowHeaders: []string{"Content-Type", "Authorization"},
+    AllowCredentials: true,
+    MaxAge: 86400,
+}))
+```
+
+### Rate Limiting
+
+Protect against abuse with rate limiting.
+
+```go
+app.Use(middleware.RateLimit(middleware.RateLimitConfig{
+    Max:        100,
+    Expiration: 1 * time.Minute,
+    KeyGenerator: func(c *fiber.Ctx) string {
+        return c.IP()
+    },
+}))
+```
+
+### Request Logging
+
+Structured request/response logging.
+
+```go
+app.Use(middleware.Logger(middleware.LoggerConfig{
+    Format: "${time} ${method} ${path} ${status} ${latency}\n",
+    TimeFormat: "2006-01-02 15:04:05",
+}))
+```
+
+### Error Handler
+
+Standardized error responses.
+
+```go
+app.Use(middleware.ErrorHandler())
+```
+
+### Request ID
+
+Generate unique request IDs for tracing.
+
+```go
+app.Use(middleware.RequestID())
+```
+
+## Usage Example
+
+```go
+package main
+
+import (
+    "github.com/gofiber/fiber/v2"
+    "github.com/minisource/go-common/http/middleware"
+)
+
+func main() {
+    app := fiber.New()
+    
+    // Apply middleware
+    app.Use(middleware.RequestID())
+    app.Use(middleware.Logger(middleware.LoggerConfig{}))
+    app.Use(middleware.CORS(middleware.CORSConfig{
+        AllowOrigins: []string{"*"},
+    }))
+    app.Use(middleware.RateLimit(middleware.RateLimitConfig{
+        Max: 100,
+    }))
+    
+    // Protected routes
+    api := app.Group("/api", middleware.Auth(middleware.AuthConfig{
+        JWTSecret: "secret",
+        Required:  true,
+    }))
+    
+    api.Get("/users", getUsers)
+    
+    app.Listen(":3000")
+}
+```

@@ -1,0 +1,137 @@
+---
+title: MiniSource Platform
+description: Complete microservices platform for building scalable applications
+icon: Rocket
+---
+
+import { Card, Cards } from 'fumadocs-ui/components/card';
+
+# Welcome to MiniSource
+
+MiniSource is a comprehensive, production-ready microservices platform built with Go, designed to accelerate application development with enterprise-grade features out of the box.
+
+## What is MiniSource?
+
+MiniSource provides a complete suite of microservices that handle common application needs:
+
+- **Authentication & Authorization** - JWT-based auth with role management and service-to-service authentication
+- **Notifications** - Multi-channel notifications (SMS, Email, Push, In-App) with template management
+- **Storage** - File storage and management with multiple backend support
+- **Payment** - Payment gateway integration and transaction management
+- **Scheduler** - Distributed job scheduling and cron management
+- **API Gateway** - Centralized API gateway with rate limiting and routing
+
+## Architecture
+
+MiniSource follows microservices architecture principles with:
+
+- **Go-based Services** - High-performance, compiled binaries
+- **gRPC Communication** - Efficient inter-service communication
+- **PostgreSQL** - Robust data persistence
+- **Redis** - Caching and session management
+- **Docker** - Containerized deployment
+- **OpenTelemetry** - Distributed tracing and observability
+
+## Quick Start
+
+<Cards>
+  <Card title="Auth Service" href="/docs/auth" icon="Lock">
+    User authentication, JWT tokens, and access control
+  </Card>
+  <Card title="Notifier Service" href="/docs/notif" icon="Bell">
+    SMS, Email, and Push notifications with templates
+  </Card>
+  <Card title="Go Common Library" href="/docs/common" icon="Package">
+    Shared utilities, middleware, and helpers
+  </Card>
+  <Card title="Go SDK" href="/docs/sdk" icon="Code">
+    Client libraries for all MiniSource services
+  </Card>
+</Cards>
+
+## Key Features
+
+### Production-Ready
+- Health checks and metrics
+- Graceful shutdown
+- Rate limiting
+- Request validation
+- Error handling
+
+### Developer-Friendly
+- Comprehensive documentation
+- SDKs for all services
+- Docker compose for local development
+- Migration tools
+- Code generation
+
+### Scalable & Secure
+- Horizontal scaling support
+- Service-to-service authentication
+- Database migrations
+- Distributed tracing
+- Multi-tenancy support
+
+## Technology Stack
+
+- **Language**: Go 1.24+
+- **Framework**: Fiber (HTTP), gRPC
+- **Database**: PostgreSQL with GORM
+- **Cache**: Redis
+- **Logging**: Zap, Zerolog
+- **Tracing**: OpenTelemetry
+- **API Docs**: Swagger/OpenAPI
+
+## Project Structure
+
+```
+minisource/
+├── auth/           # Authentication service
+├── notifier/       # Notification service
+├── storage/        # File storage service
+├── payment/        # Payment service
+├── scheduler/      # Job scheduler service
+├── gateway/        # API gateway
+├── go-common/      # Shared Go libraries
+├── go-sdk/         # Client SDKs
+├── go-template/    # Service template
+├── infra/          # Infrastructure configs
+└── doc/            # Documentation
+```
+
+## Use Cases
+
+MiniSource is perfect for:
+
+- **SaaS Applications** - Multi-tenant support with user management
+- **Mobile Backends** - Push notifications and authentication
+- **E-commerce** - Payment processing and order notifications
+- **Enterprise Apps** - Service-to-service authentication and audit logs
+- **Startups** - Rapid development with production-ready services
+
+## Next Steps
+
+<Cards>
+  <Card title="Installation" href="/docs/getting-started/installation">
+    Set up your development environment
+  </Card>
+  <Card title="Authentication Guide" href="/docs/auth/getting-started">
+    Implement user authentication
+  </Card>
+  <Card title="Send Notifications" href="/docs/notif/examples">
+    Send SMS, email, and push notifications
+  </Card>
+  <Card title="API Reference" href="/docs/api">
+    Explore the complete API documentation
+  </Card>
+</Cards>
+
+## Community & Support
+
+- **GitHub**: [github.com/minisource](https://github.com/minisource)
+- **Documentation**: [docs.minisource.dev](https://docs.minisource.dev)
+- **Issues**: Report bugs and request features on GitHub
+
+## License
+
+MiniSource is open-source software licensed under the MIT license.

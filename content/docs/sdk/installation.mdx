@@ -1,0 +1,157 @@
+---
+title: Installation
+description: How to install and set up the Go SDK
+icon: Download
+---
+
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Installation
+
+Install the MiniSource Go SDK in your project.
+
+## Prerequisites
+
+- Go 1.21 or later
+- Go modules enabled
+
+## Installation Steps
+
+<Steps>
+  <Step>
+    ### Install via Go Modules
+    
+    ```bash
+    go get github.com/minisource/go-sdk
+    ```
+  </Step>
+  
+  <Step>
+    ### Import in Your Code
+    
+    ```go
+    import (
+        "github.com/minisource/go-sdk/auth"
+        "github.com/minisource/go-sdk/notifier"
+    )
+    ```
+  </Step>
+  
+  <Step>
+    ### Initialize Clients
+    
+    ```go
+    // Auth client
+    authClient, err := auth.NewClient("http://localhost:9001")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Notifier client
+    notifierClient, err := notifier.NewClient("localhost:9003")
+    if err != nil {
+        log.Fatal(err)
+    }
+    defer notifierClient.Close()
+    ```
+  </Step>
+</Steps>
+
+## Verify Installation
+
+Create a simple test file:
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    "github.com/minisource/go-sdk/auth"
+)
+
+func main() {
+    client, err := auth.NewClient("http://localhost:9001")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    fmt.Println("SDK initialized successfully!")
+}
+```
+
+Run the test:
+
+```bash
+go run main.go
+```
+
+<Callout type="success">
+  If you see "SDK initialized successfully!", the installation is complete.
+</Callout>
+
+## Configuration
+
+### Service URLs
+
+Set service URLs based on your environment:
+
+```go
+const (
+    authURL     = "http://localhost:9001"  // Development
+    notifierURL = "localhost:9003"          // gRPC address
+)
+
+// Production
+const (
+    authURL     = "https://auth.minisource.dev"
+    notifierURL = "notifier.minisource.dev:443"
+)
+```
+
+### Environment Variables
+
+```go
+import "os"
+
+authURL := os.Getenv("AUTH_SERVICE_URL")
+if authURL == "" {
+    authURL = "http://localhost:9001"
+}
+
+client, err := auth.NewClient(authURL)
+```
+
+## Troubleshooting
+
+### Module Not Found
+
+**Error:** `module github.com/minisource/go-sdk: not found`
+
+**Solution:**
+```bash
+go mod tidy
+go get github.com/minisource/go-sdk@latest
+```
+
+### Import Cycle
+
+**Error:** `import cycle not allowed`
+
+**Solution:** Ensure you're importing specific sub-packages:
+```go
+// ✓ Correct
+import "github.com/minisource/go-sdk/auth"
+
+// ✗ Incorrect
+import "github.com/minisource/go-sdk"
+```
+
+## Next Steps
+
+- Read the [Usage Guide](/docs/sdk/usage) for examples
+- Explore [Auth Client](/docs/sdk/usage#auth-client) documentation
+- Check [Notifier Client](/docs/sdk/usage#notifier-client) examples

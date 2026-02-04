@@ -1,0 +1,307 @@
+---
+title: API Reference
+description: Complete Auth Service API documentation
+icon: Book
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+
+# Auth Service API Reference
+
+Complete reference for all Auth Service endpoints.
+
+## Base URL
+
+```
+http://localhost:9001/api/v1
+```
+
+## Authentication
+
+Most endpoints require a JWT token in the Authorization header:
+
+```http
+Authorization: Bearer <access_token>
+```
+
+## Public Endpoints
+
+### Register User
+
+Create a new user account.
+
+```http
+POST /auth/register
+```
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!",
+  "phone": "+1234567890",
+  "firstName": "John",
+  "lastName": "Doe"
+}
+```
+
+**Response:** `201 Created`
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "user@example.com",
+      "phone": "+1234567890",
+      "firstName": "John",
+      "lastName": "Doe",
+      "status": "active",
+      "createdAt": "2024-01-15T10:30:00Z",
+      "updatedAt": "2024-01-15T10:30:00Z"
+    },
+    "tokens": {
+      "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+      "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+      "expiresIn": 900
+    }
+  }
+}
+```
+
+### Login
+
+Authenticate with email and password.
+
+```http
+POST /auth/login
+```
+
+**Request Body:**
+```json
+{
+  "email": "user@example.com",
+  "password": "SecurePass123!"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "user": {
+      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "email": "user@example.com",
+      "firstName": "John",
+      "lastName": "Doe"
+    },
+    "tokens": {
+      "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+      "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+      "expiresIn": 900
+    }
+  }
+}
+```
+
+### Request OTP
+
+Request a one-time password for phone authentication.
+
+```http
+POST /auth/otp/request
+```
+
+**Request Body:**
+```json
+{
+  "phone": "+1234567890",
+  "channel": "sms"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "message": "OTP sent successfully",
+  "data": {
+    "expiresIn": 300
+  }
+}
+```
+
+### Verify OTP
+
+Verify the OTP code and login.
+
+```http
+POST /auth/otp/verify
+```
+
+**Request Body:**
+```json
+{
+  "phone": "+1234567890",
+  "code": "123456"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "tokens": {
+      "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+      "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+      "expiresIn": 900
+    }
+  }
+}
+```
+
+### Refresh Token
+
+Obtain a new access token using refresh token.
+
+```http
+POST /auth/refresh
+```
+
+**Request Body:**
+```json
+{
+  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+    "expiresIn": 900
+  }
+}
+```
+
+## Protected Endpoints
+
+### Get Current User
+
+Get the authenticated user's profile.
+
+```http
+GET /auth/me
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "email": "user@example.com",
+    "phone": "+1234567890",
+    "firstName": "John",
+    "lastName": "Doe",
+    "avatar": "https://example.com/avatar.jpg",
+    "status": "active",
+    "roles": ["user"],
+    "createdAt": "2024-01-15T10:30:00Z",
+    "updatedAt": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+### Update Profile
+
+Update the authenticated user's profile.
+
+```http
+PUT /auth/me
+Authorization: Bearer <access_token>
+```
+
+**Request Body:**
+```json
+{
+  "firstName": "Jane",
+  "lastName": "Smith",
+  "avatar": "https://example.com/new-avatar.jpg"
+}
+```
+
+**Response:** `200 OK`
+
+### Change Password
+
+Change the authenticated user's password.
+
+```http
+PUT /auth/change-password
+Authorization: Bearer <access_token>
+```
+
+**Request Body:**
+```json
+{
+  "oldPassword": "OldSecurePass123!",
+  "newPassword": "NewSecurePass456!"
+}
+```
+
+**Response:** `200 OK`
+
+### Logout
+
+Invalidate the current session.
+
+```http
+POST /auth/logout
+Authorization: Bearer <access_token>
+```
+
+**Response:** `200 OK`
+
+## Error Responses
+
+All errors follow this format:
+
+```json
+{
+  "success": false,
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "Invalid input data",
+    "details": [
+      {
+        "field": "email",
+        "message": "Invalid email format"
+      }
+    ]
+  }
+}
+```
+
+### Common Error Codes
+
+- `VALIDATION_ERROR` - Invalid request data
+- `UNAUTHORIZED` - Authentication required
+- `FORBIDDEN` - Permission denied
+- `NOT_FOUND` - Resource not found
+- `DUPLICATE_EMAIL` - Email already registered
+- `INVALID_CREDENTIALS` - Wrong email or password
+- `INVALID_OTP` - Wrong OTP code
+- `OTP_EXPIRED` - OTP code expired
+- `TOKEN_EXPIRED` - Access token expired
+- `INTERNAL_ERROR` - Server error
+
+<Callout type="info">
+  For detailed error handling, see [Error Handling Guide](/docs/auth/errors)
+</Callout>

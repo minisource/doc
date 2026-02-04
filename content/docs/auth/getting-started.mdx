@@ -1,0 +1,470 @@
+---
+title: Getting Started
+description: Quick start guide for integrating Auth Service
+icon: Rocket
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Step, Steps } from 'fumadocs-ui/components/steps';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+# Getting Started with Auth Service
+
+This guide will help you set up and integrate the Auth Service into your application.
+
+## Prerequisites
+
+Before you begin, ensure you have:
+
+- Go 1.21 or later
+- PostgreSQL 14 or later
+- Redis 7 or later
+- Make (for using Makefile commands)
+
+## Installation
+
+<Steps>
+  <Step>
+    ### Clone the Repository
+    
+    ```bash
+    git clone https://github.com/minisource/auth.git
+    cd auth
+    ```
+  </Step>
+  
+  <Step>
+    ### Install Dependencies
+    
+    ```bash
+    go mod download
+    ```
+  </Step>
+  
+  <Step>
+    ### Configure Environment
+    
+    Create a `.env` file in the root directory:
+    
+    ```bash
+    cp .env.example .env
+    ```
+    
+    Edit `.env` with your configuration:
+    
+    ```env
+    # Server Configuration
+    SERVER_HOST=0.0.0.0
+    SERVER_PORT=9001
+    SERVER_GRPC_PORT=9000
+    
+    # Database
+    POSTGRES_HOST=localhost
+    POSTGRES_PORT=5432
+    POSTGRES_USER=auth_user
+    POSTGRES_PASSWORD=your_secure_password
+    POSTGRES_DB=auth_db
+    POSTGRES_SSLMODE=disable
+    
+    # Redis
+    REDIS_HOST=localhost
+    REDIS_PORT=6379
+    REDIS_PASSWORD=
+    REDIS_DB=0
+    
+    # JWT Configuration
+    JWT_SECRET=your-super-secret-jwt-key-change-this-in-production
+    JWT_ACCESS_EXPIRY=15m
+    JWT_REFRESH_EXPIRY=168h
+    
+    # OTP Configuration
+    OTP_LENGTH=6
+    OTP_EXPIRY=5m
+    OTP_MAX_ATTEMPTS=3
+    
+    # Notifier Service (for sending OTP)
+    NOTIFIER_GRPC_ADDRESS=localhost:9003
+    ```
+  </Step>
+  
+  <Step>
+    ### Start Dependencies
+    
+    Use Docker Compose to start PostgreSQL and Redis:
+    
+    ```bash
+    docker-compose up -d postgres redis
+    ```
+  </Step>
+  
+  <Step>
+    ### Run Database Migrations
+    
+    ```bash
+    make migrate-up
+    ```
+    
+    This will create all necessary tables and seed initial data.
+  </Step>
+  
+  <Step>
+    ### Start the Service
+    
+    ```bash
+    make dev
+    ```
+    
+    The service will start on:
+    - HTTP: `http://localhost:9001`
+    - gRPC: `localhost:9000`
+  </Step>
+</Steps>
+
+<Callout type="success">
+  The Auth Service is now running! You can access the Swagger documentation at `http://localhost:9001/swagger/index.html`
+</Callout>
+
+## First User Registration
+
+Let's create your first user:
+
+<Tabs items={['cURL', 'Go SDK', 'JavaScript']}>
+  <Tab value="cURL">
+    ```bash
+    curl -X POST http://localhost:9001/api/v1/auth/register \
+      -H "Content-Type: application/json" \
+      -d '{
+        "email": "admin@example.com",
+        "password": "SecurePass123!",
+        "phone": "+1234567890",
+        "firstName": "John",
+        "lastName": "Doe"
+      }'
+    ```
+    
+    Response:
+    ```json
+    {
+      "success": true,
+      "data": {
+        "user": {
+          "id": "123e4567-e89b-12d3-a456-426614174000",
+          "email": "admin@example.com",
+          "phone": "+1234567890",
+          "firstName": "John",
+          "lastName": "Doe",
+          "status": "active",
+          "createdAt": "2024-01-15T10:30:00Z"
+        },
+        "tokens": {
+          "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+          "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+          "expiresIn": 900
+        }
+      }
+    }
+    ```
+  </Tab>
+  
+  <Tab value="Go SDK">
+    ```go
+    package main
+    
+    import (
+        "context"
+        "fmt"
+        "log"
+        
+        "github.com/minisource/go-sdk/auth"
+    )
+    
+    func main() {
+        // Initialize Auth Client
+        client, err := auth.NewClient("http://localhost:9001")
+        if err != nil {
+            log.Fatal(err)
+        }
+        
+        // Register User
+        user, tokens, err := client.Register(context.Background(), auth.RegisterRequest{
+            Email:     "admin@example.com",
+            Password:  "SecurePass123!",
+            Phone:     "+1234567890",
+            FirstName: "John",
+            LastName:  "Doe",
+        })
+        
+        if err != nil {
+            log.Fatal(err)
+        }
+        
+        fmt.Printf("User created: %s\n", user.ID)
+        fmt.Printf("Access token: %s\n", tokens.AccessToken)
+    }
+    ```
+  </Tab>
+  
+  <Tab value="JavaScript">
+    ```javascript
+    const response = await fetch('http://localhost:9001/api/v1/auth/register', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        email: 'admin@example.com',
+        password: 'SecurePass123!',
+        phone: '+1234567890',
+        firstName: 'John',
+        lastName: 'Doe',
+      }),
+    });
+    
+    const data = await response.json();
+    console.log('User ID:', data.data.user.id);
+    console.log('Access Token:', data.data.tokens.accessToken);
+    ```
+  </Tab>
+</Tabs>
+
+## Authentication Flow
+
+### Password-Based Login
+
+<Steps>
+  <Step>
+    ### Login Request
+    
+    ```bash
+    curl -X POST http://localhost:9001/api/v1/auth/login \
+      -H "Content-Type: application/json" \
+      -d '{
+        "email": "admin@example.com",
+        "password": "SecurePass123!"
+      }'
+    ```
+  </Step>
+  
+  <Step>
+    ### Store Tokens
+    
+    Save the `accessToken` and `refreshToken` from the response:
+    
+    ```json
+    {
+      "success": true,
+      "data": {
+        "accessToken": "eyJhbGciOiJIUzI1NiIs...",
+        "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+        "expiresIn": 900
+      }
+    }
+    ```
+  </Step>
+  
+  <Step>
+    ### Use Access Token
+    
+    Include the access token in the Authorization header:
+    
+    ```bash
+    curl -X GET http://localhost:9001/api/v1/auth/me \
+      -H "Authorization: Bearer eyJhbGciOiJIUzI1NiIs..."
+    ```
+  </Step>
+  
+  <Step>
+    ### Refresh When Expired
+    
+    When the access token expires, use the refresh token:
+    
+    ```bash
+    curl -X POST http://localhost:9001/api/v1/auth/refresh \
+      -H "Content-Type: application/json" \
+      -d '{
+        "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
+      }'
+    ```
+  </Step>
+</Steps>
+
+### OTP-Based Login
+
+For phone-based authentication:
+
+<Steps>
+  <Step>
+    ### Request OTP
+    
+    ```bash
+    curl -X POST http://localhost:9001/api/v1/auth/otp/request \
+      -H "Content-Type: application/json" \
+      -d '{
+        "phone": "+1234567890",
+        "channel": "sms"
+      }'
+    ```
+    
+    The user will receive an SMS with a 6-digit code.
+  </Step>
+  
+  <Step>
+    ### Verify OTP
+    
+    ```bash
+    curl -X POST http://localhost:9001/api/v1/auth/otp/verify \
+      -H "Content-Type: application/json" \
+      -d '{
+        "phone": "+1234567890",
+        "code": "123456"
+      }'
+    ```
+    
+    Returns access and refresh tokens on success.
+  </Step>
+</Steps>
+
+## Protected Routes
+
+To access protected endpoints, include the JWT token:
+
+```bash
+curl -X GET http://localhost:9001/api/v1/auth/me \
+  -H "Authorization: Bearer YOUR_ACCESS_TOKEN"
+```
+
+<Callout type="info">
+  The access token must be prefixed with `Bearer ` in the Authorization header.
+</Callout>
+
+## Using with Go SDK
+
+Install the SDK:
+
+```bash
+go get github.com/minisource/go-sdk
+```
+
+Example usage:
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "log"
+    
+    "github.com/minisource/go-sdk/auth"
+)
+
+func main() {
+    // Initialize client
+    client, err := auth.NewClient("http://localhost:9001")
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Login
+    tokens, err := client.Login(context.Background(), auth.LoginRequest{
+        Email:    "admin@example.com",
+        Password: "SecurePass123!",
+    })
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    // Set token for authenticated requests
+    client.SetToken(tokens.AccessToken)
+    
+    // Get current user
+    user, err := client.GetMe(context.Background())
+    if err != nil {
+        log.Fatal(err)
+    }
+    
+    fmt.Printf("Logged in as: %s %s\n", user.FirstName, user.LastName)
+}
+```
+
+## Docker Deployment
+
+Build and run with Docker:
+
+```bash
+# Build image
+docker build -t minisource/auth:latest .
+
+# Run with docker-compose
+docker-compose up -d
+```
+
+The `docker-compose.yml` includes:
+- Auth service
+- PostgreSQL database
+- Redis cache
+- Automatic migrations
+
+## Health Check
+
+Verify the service is running:
+
+```bash
+curl http://localhost:9001/health
+```
+
+Response:
+```json
+{
+  "status": "ok",
+  "timestamp": "2024-01-15T10:30:00Z",
+  "services": {
+    "database": "healthy",
+    "redis": "healthy"
+  }
+}
+```
+
+## Common Issues
+
+### Database Connection Failed
+
+**Problem:** Cannot connect to PostgreSQL
+
+**Solution:** Ensure PostgreSQL is running and credentials are correct:
+```bash
+docker-compose ps postgres
+```
+
+### Migration Errors
+
+**Problem:** Migration fails with "relation already exists"
+
+**Solution:** Reset migrations:
+```bash
+make migrate-down
+make migrate-up
+```
+
+### Token Validation Errors
+
+**Problem:** "Invalid token" or "Token expired"
+
+**Solution:** 
+- Verify `JWT_SECRET` matches across services
+- Check token expiry times in `.env`
+- Ensure system clocks are synchronized
+
+## Next Steps
+
+<Cards>
+  <Card title="API Reference" href="/docs/auth/api-reference">
+    Explore all available endpoints
+  </Card>
+  <Card title="JWT Tokens" href="/docs/auth/jwt-tokens">
+    Understand token structure and claims
+  </Card>
+  <Card title="Role Management" href="/docs/auth/roles">
+    Set up roles and permissions
+  </Card>
+</Cards>

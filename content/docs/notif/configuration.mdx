@@ -1,0 +1,178 @@
+---
+title: Configuration Guide
+description: Complete configuration reference for the Notifier service
+---
+
+# Configuration Guide
+
+The Notifier service uses environment variables for configuration. All settings are loaded from a `.env` file or system environment variables.
+
+## Environment Variables
+
+### Server Configuration
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `SERVER_INTERNAL_PORT` | Internal HTTP server port | `9002` | No |
+| `SERVER_EXTERNAL_PORT` | External port (for load balancers) | `9002` | No |
+| `SERVER_NAME` | Service name | `Notifier` | No |
+| `SERVER_RUN_MODE` | Run mode (development/production) | `development` | No |
+
+### Database Configuration
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `POSTGRES_HOST` | PostgreSQL host | `localhost` | Yes |
+| `POSTGRES_PORT` | PostgreSQL port | `5432` | Yes |
+| `POSTGRES_USER` | Database user | `postgres` | Yes |
+| `POSTGRES_PASSWORD` | Database password | `postgres` | Yes |
+| `POSTGRES_DBNAME` | Database name | `notifier_db` | Yes |
+| `POSTGRES_SSLMODE` | SSL mode | `disable` | No |
+| `POSTGRES_MAX_IDLE_CONNS` | Max idle connections | `10` | No |
+| `POSTGRES_MAX_OPEN_CONNS` | Max open connections | `100` | No |
+| `POSTGRES_CONN_MAX_LIFETIME` | Connection max lifetime (minutes) | `60` | No |
+
+### Worker Configuration
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `WORKER_NUM_WORKERS` | Number of worker goroutines | `10` | No |
+| `WORKER_QUEUE_SIZE` | Notification queue buffer size | `1000` | No |
+| `WORKER_RETRY_MAX_DELAY` | Max retry delay (seconds) | `300` | No |
+| `WORKER_RETRY_BASE_DELAY` | Base retry delay (seconds) | `5` | No |
+
+### CORS Configuration
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `CORS_ALLOW_ORIGINS` | Allowed CORS origins | `*` | No |
+
+### Logger Configuration
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `LOGGER_FILE_PATH` | Log file path | `logs/notifier.log` | No |
+| `LOGGER_ENCODING` | Log encoding (json/console) | `json` | No |
+| `LOGGER_LEVEL` | Log level (debug/info/warn/error) | `debug` | No |
+| `LOGGER_TYPE` | Logger type (zap/zerolog) | `zap` | No |
+
+### gRPC Configuration
+
+| Variable | Description | Default | Required |
+|----------|-------------|---------|----------|
+| `GRPC_PORT` | gRPC server port | `9003` | No |
+| `GRPC_ENABLED` | Enable gRPC server | `true` | No |
+
+## Example Configurations
+
+### Development
+
+```env
+SERVER_INTERNAL_PORT=9002
+SERVER_RUN_MODE=development
+
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DBNAME=notifier_db
+POSTGRES_SSLMODE=disable
+
+WORKER_NUM_WORKERS=5
+WORKER_QUEUE_SIZE=500
+
+LOGGER_LEVEL=debug
+LOGGER_ENCODING=console
+
+GRPC_ENABLED=true
+GRPC_PORT=9003
+```
+
+### Production
+
+```env
+SERVER_INTERNAL_PORT=9002
+SERVER_EXTERNAL_PORT=80
+SERVER_RUN_MODE=production
+
+POSTGRES_HOST=prod-db.example.com
+POSTGRES_PORT=5432
+POSTGRES_USER=notifier_user
+POSTGRES_PASSWORD=${DB_PASSWORD}
+POSTGRES_DBNAME=notifier_prod
+POSTGRES_SSLMODE=require
+POSTGRES_MAX_IDLE_CONNS=20
+POSTGRES_MAX_OPEN_CONNS=200
+POSTGRES_CONN_MAX_LIFETIME=120
+
+WORKER_NUM_WORKERS=50
+WORKER_QUEUE_SIZE=5000
+WORKER_RETRY_MAX_DELAY=600
+WORKER_RETRY_BASE_DELAY=10
+
+CORS_ALLOW_ORIGINS=https://example.com,https://app.example.com
+
+LOGGER_FILE_PATH=/var/log/notifier/app.log
+LOGGER_ENCODING=json
+LOGGER_LEVEL=info
+LOGGER_TYPE=zap
+
+GRPC_ENABLED=true
+GRPC_PORT=9003
+```
+
+### Docker
+
+```env
+SERVER_INTERNAL_PORT=9002
+POSTGRES_HOST=postgres
+POSTGRES_PORT=5432
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_DBNAME=notifier_db
+WORKER_NUM_WORKERS=10
+LOGGER_LEVEL=info
+GRPC_ENABLED=true
+```
+
+## Database-Driven Configuration
+
+Some provider settings can be stored in the database `settings` table instead of environment variables:
+
+```sql
+INSERT INTO settings (key, value, description) VALUES
+  ('sms_provider', 'twilio', 'SMS provider name'),
+  ('sms_account_sid', 'ACxxxxx', 'Twilio Account SID'),
+  ('email_provider', 'smtp', 'Email provider name'),
+  ('email_host', 'smtp.gmail.com', 'SMTP host'),
+  ('email_port', '587', 'SMTP port');
+```
+
+The service will check the database first and fall back to environment variables if not found.
+
+## Security Best Practices
+
+1. **Never commit `.env` files** - Add to `.gitignore`
+2. **Use secrets management** - Use AWS Secrets Manager, Azure Key Vault, or HashiCorp Vault in production
+3. **Rotate credentials regularly** - Change database passwords and API keys periodically
+4. **Enable SSL** - Always use `POSTGRES_SSLMODE=require` in production
+5. **Restrict CORS** - Specify allowed origins instead of `*`
+6. **Use strong passwords** - Follow password complexity requirements
+
+## Loading Configuration
+
+The service loads configuration in this order:
+
+1. `.env` file in the project root
+2. System environment variables (override `.env`)
+3. Default values (if no env var or `.env` value)
+
+## Validation
+
+The service validates required configuration on startup:
+
+- Database connection is tested
+- Required fields are checked
+- Invalid values are logged with warnings
+
+If critical configuration is missing or invalid, the service will fail to start with a descriptive error message.
