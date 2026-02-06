@@ -1,0 +1,332 @@
+---
+title: Feedback Service
+description: User feedback and feature request management
+icon: MessageSquarePlus
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+# Feedback Service
+
+The Feedback Service enables collecting, organizing, and managing user feedback, feature requests, and suggestions. It supports voting, categorization, and status tracking through the product development lifecycle.
+
+## Features
+
+- **Feedback Collection** - Collect user feedback and feature requests
+- **Voting System** - Upvote/downvote for community prioritization
+- **Categories** - Organize feedback by product areas
+- **Status Tracking** - Track from submission to implementation
+- **Comments** - Discussion threads via Comment Service
+- **Subscriptions** - Email notifications for updates
+- **Admin Dashboard** - Moderation and management tools
+- **Multi-tenant** - Full tenant isolation
+
+## Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SERVER_PORT` | HTTP server port | `5012` |
+| `MONGODB_URI` | MongoDB connection string | - |
+| `MONGODB_DATABASE` | Database name | `feedback_db` |
+| `AUTH_SERVICE_URL` | Auth service URL | - |
+| `COMMENT_SERVICE_URL` | Comment service URL | - |
+| `REDIS_HOST` | Redis host | - |
+| `REDIS_PORT` | Redis port | `6379` |
+
+## API Reference
+
+### Create Feedback
+
+<Tabs items={['Request', 'Response']}>
+  <Tab value="Request">
+```bash
+POST /api/v1/feedback
+Content-Type: application/json
+Authorization: Bearer <token>
+X-Tenant-ID: <tenant-id>
+
+{
+  "title": "Add dark mode support",
+  "description": "It would be great to have a dark mode option for the dashboard...",
+  "categoryId": "cat-ui",
+  "type": "feature_request",
+  "attachments": []
+}
+```
+  </Tab>
+  <Tab value="Response">
+```json
+{
+  "success": true,
+  "data": {
+    "id": "feedback-abc123",
+    "title": "Add dark mode support",
+    "description": "It would be great to have a dark mode option...",
+    "status": "pending",
+    "type": "feature_request",
+    "categoryId": "cat-ui",
+    "categoryName": "User Interface",
+    "authorId": "user-456",
+    "authorName": "Jane Doe",
+    "voteCount": 1,
+    "commentCount": 0,
+    "createdAt": "2024-01-15T10:30:00Z"
+  }
+}
+```
+  </Tab>
+</Tabs>
+
+### List Feedback
+
+```bash
+GET /api/v1/feedback?status=approved&category=cat-ui&sort=votes&page=1&per_page=20
+Authorization: Bearer <token>
+X-Tenant-ID: <tenant-id>
+```
+
+### Get Trending Feedback
+
+```bash
+GET /api/v1/feedback/trending?limit=10
+X-Tenant-ID: <tenant-id>
+```
+
+### Vote on Feedback
+
+```bash
+POST /api/v1/feedback/{id}/vote
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "type": "upvote"
+}
+```
+
+### Get Feedback Stats
+
+```bash
+GET /api/v1/feedback/stats
+Authorization: Bearer <token>
+X-Tenant-ID: <tenant-id>
+```
+
+## Categories
+
+### List Categories
+
+```bash
+GET /api/v1/categories
+X-Tenant-ID: <tenant-id>
+```
+
+### Admin: Create Category
+
+```bash
+POST /api/v1/admin/categories
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "name": "User Interface",
+  "description": "UI/UX related feedback",
+  "slug": "ui",
+  "color": "#4CAF50",
+  "icon": "palette"
+}
+```
+
+## Subscriptions
+
+### Subscribe to Feedback
+
+```bash
+POST /api/v1/feedback/{id}/subscribe
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "type": "all"
+}
+```
+
+### Subscription Types
+
+| Type | Description |
+|------|-------------|
+| `all` | All updates (comments, status changes) |
+| `status_only` | Only status changes |
+| `comments_only` | Only new comments |
+
+## Admin Operations
+
+### Moderate Feedback
+
+```bash
+# Approve feedback
+POST /api/v1/admin/feedback/{id}/approve
+Authorization: Bearer <token>
+
+# Reject feedback
+POST /api/v1/admin/feedback/{id}/reject
+{
+  "reason": "Duplicate of existing feedback"
+}
+
+# Update status
+PATCH /api/v1/admin/feedback/{id}/status
+{
+  "status": "planned",
+  "note": "Scheduled for Q2 2024"
+}
+```
+
+### Add Official Response
+
+```bash
+POST /api/v1/admin/feedback/{id}/response
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "content": "Thank you for your feedback! We're planning to implement this in our next release.",
+  "isPublic": true
+}
+```
+
+### Admin Dashboard
+
+```bash
+GET /api/v1/admin/dashboard
+Authorization: Bearer <token>
+X-Tenant-ID: <tenant-id>
+```
+
+Returns:
+```json
+{
+  "success": true,
+  "data": {
+    "totalFeedback": 150,
+    "pendingModeration": 12,
+    "byStatus": {
+      "pending": 12,
+      "approved": 80,
+      "planned": 25,
+      "in_progress": 15,
+      "completed": 10,
+      "rejected": 8
+    },
+    "byCategory": {
+      "ui": 45,
+      "features": 60,
+      "performance": 25,
+      "bugs": 20
+    },
+    "topVoted": [...]
+  }
+}
+```
+
+## Using go-sdk
+
+```go
+import "github.com/minisource/go-sdk/feedback"
+
+// Create client
+client := feedback.NewClient(feedback.ClientConfig{
+    BaseURL:      "http://feedback:5012",
+    ClientID:     cfg.Auth.ClientID,
+    ClientSecret: cfg.Auth.ClientSecret,
+})
+
+// Create feedback
+resp, err := client.Create(ctx, feedback.CreateFeedbackRequest{
+    TenantID:    tenantID,
+    Title:       "Feature request",
+    Description: "Detailed description...",
+    CategoryID:  "cat-features",
+    Type:        feedback.TypeFeatureRequest,
+    AuthorID:    userID,
+    AuthorName:  userName,
+})
+
+// List feedback
+list, err := client.List(ctx, tenantID, feedback.FeedbackFilter{
+    Status:   []feedback.FeedbackStatus{feedback.StatusApproved},
+    Sort:     "votes",
+    Page:     1,
+    PerPage:  20,
+})
+
+// Vote
+err := client.Vote(ctx, tenantID, feedbackID, userID, feedback.VoteUpvote)
+
+// Subscribe
+err := client.Subscribe(ctx, tenantID, feedbackID, feedback.SubscribeRequest{
+    UserID: userID,
+    Email:  userEmail,
+    Type:   feedback.SubscriptionAll,
+})
+```
+
+## Status Workflow
+
+```
+┌─────────────┐     ┌─────────────┐
+│   Pending   │────▶│  Approved   │
+└──────┬──────┘     └──────┬──────┘
+       │                   │
+       │            ┌──────┴──────┐
+       ▼            ▼             ▼
+┌─────────────┐ ┌─────────┐ ┌─────────────┐
+│  Rejected   │ │ Planned │ │Under Review │
+└─────────────┘ └────┬────┘ └──────┬──────┘
+                     │             │
+                     ▼             │
+              ┌─────────────┐      │
+              │ In Progress │◀─────┘
+              └──────┬──────┘
+                     │
+                     ▼
+              ┌─────────────┐     ┌─────────────┐
+              │  Completed  │     │   Closed    │
+              └─────────────┘     └─────────────┘
+```
+
+## Data Models
+
+### Feedback Status
+
+| Status | Description |
+|--------|-------------|
+| `pending` | Awaiting moderation |
+| `approved` | Visible to community |
+| `rejected` | Not accepted |
+| `under_review` | Being reviewed by team |
+| `planned` | Scheduled for development |
+| `in_progress` | Currently being developed |
+| `completed` | Implemented |
+| `closed` | No longer relevant |
+
+### Feedback Type
+
+| Type | Description |
+|------|-------------|
+| `feature_request` | Request for new feature |
+| `improvement` | Enhancement to existing feature |
+| `bug_report` | Report of a bug |
+| `question` | General question |
+| `other` | Other feedback |
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `FEEDBACK_NOT_FOUND` | Feedback does not exist |
+| `CATEGORY_NOT_FOUND` | Category not found |
+| `ALREADY_VOTED` | User already voted |
+| `UNAUTHORIZED` | User not authorized |
+| `MODERATION_REQUIRED` | Feedback pending moderation |

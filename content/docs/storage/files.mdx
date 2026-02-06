@@ -1,0 +1,239 @@
+---
+title: Files API
+description: Upload, download, and manage files
+---
+
+# Files API
+
+The Files API provides endpoints for uploading, downloading, and managing files.
+
+## Upload a File
+
+Upload a new file to storage.
+
+```http
+POST /api/v1/files
+Content-Type: multipart/form-data
+Authorization: Bearer <token>
+X-Tenant-ID: <tenant_id>
+```
+
+### Form Data
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `file` | file | Yes | The file to upload |
+| `folder_id` | string | No | Target folder UUID |
+
+### Example
+
+```bash
+curl -X POST http://localhost:5004/api/v1/files \
+  -H "Authorization: Bearer YOUR_TOKEN" \
+  -H "X-Tenant-ID: YOUR_TENANT_ID" \
+  -F "file=@/path/to/image.jpg" \
+  -F "folder_id=550e8400-e29b-41d4-a716-446655440000"
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+    "name": "image.jpg",
+    "original_name": "image.jpg",
+    "path": "/documents/image.jpg",
+    "mime_type": "image/jpeg",
+    "size": 102400,
+    "hash": "sha256:abc123...",
+    "storage_provider": "s3",
+    "is_public": false,
+    "version": 1,
+    "downloads": 0,
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+## Download a File
+
+Download a file by ID.
+
+```http
+GET /api/v1/files/:id/download
+Authorization: Bearer <token>
+X-Tenant-ID: <tenant_id>
+```
+
+### Query Parameters (Image Transformations)
+
+| Parameter | Type | Description |
+|-----------|------|-------------|
+| `w` | int | Width in pixels |
+| `h` | int | Height in pixels |
+| `q` | int | Quality (1-100) |
+| `f` | string | Format (jpeg, png, webp, avif) |
+| `fit` | string | Fit mode (contain, cover, fill) |
+| `blur` | int | Blur amount |
+| `sharpen` | bool | Enable sharpening |
+| `grayscale` | bool | Convert to grayscale |
+| `rotate` | int | Rotation (90, 180, 270) |
+| `flip` | bool | Flip vertically |
+| `flop` | bool | Flip horizontally |
+
+### Examples
+
+```bash
+# Download original file
+curl -O http://localhost:5004/api/v1/files/123.../download \
+  -H "Authorization: Bearer TOKEN"
+
+# Download resized image
+curl -O http://localhost:5004/api/v1/files/123.../download?w=800&h=600&q=85 \
+  -H "Authorization: Bearer TOKEN"
+
+# Convert to WebP with blur
+curl -O http://localhost:5004/api/v1/files/123.../download?f=webp&blur=5 \
+  -H "Authorization: Bearer TOKEN"
+```
+
+## Get File Metadata
+
+```http
+GET /api/v1/files/:id
+Authorization: Bearer <token>
+X-Tenant-ID: <tenant_id>
+```
+
+## Get File Thumbnail
+
+Get a pre-generated thumbnail for an image.
+
+```http
+GET /api/v1/files/:id/thumbnail?size=256
+Authorization: Bearer <token>
+```
+
+### Query Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `size` | 256 | Thumbnail size (64, 128, 256, 512) |
+
+## Get Signed URL
+
+Get a pre-signed URL for direct file access.
+
+```http
+GET /api/v1/files/:id/url?expires=3600
+Authorization: Bearer <token>
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "url": "https://storage.example.com/file.jpg?signature=...",
+    "expires": 3600
+  }
+}
+```
+
+## Update File
+
+Update file metadata.
+
+```http
+PATCH /api/v1/files/:id
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+### Request Body
+
+```json
+{
+  "name": "renamed-file.jpg",
+  "is_public": true,
+  "metadata": {
+    "description": "My image"
+  },
+  "tags": ["photos", "vacation"]
+}
+```
+
+## Delete File
+
+```http
+DELETE /api/v1/files/:id
+Authorization: Bearer <token>
+```
+
+## List Files
+
+```http
+GET /api/v1/files
+Authorization: Bearer <token>
+```
+
+### Query Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `folder_id` | Filter by folder |
+| `name` | Filter by name (partial match) |
+| `mime_type` | Filter by MIME type |
+| `file_type` | Filter by type (image, video, audio, document) |
+| `page` | Page number (default: 1) |
+| `page_size` | Items per page (default: 20) |
+| `sort_by` | Sort field (name, size, created_at) |
+| `sort_order` | Sort order (asc, desc) |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "items": [...],
+    "total": 150,
+    "page": 1,
+    "page_size": 20,
+    "total_pages": 8
+  }
+}
+```
+
+## Copy File
+
+Create a copy of a file.
+
+```http
+POST /api/v1/files/:id/copy
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+### Request Body
+
+```json
+{
+  "name": "copy-of-file.jpg",
+  "folder_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+## Deduplication
+
+The storage service automatically deduplicates files based on content hash. When uploading a file that already exists, the service will:
+
+1. Detect the duplicate via SHA-256 hash
+2. Create a new file record pointing to existing storage
+3. Skip actual upload to save storage space
+
+This is transparent to the API consumer.

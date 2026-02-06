@@ -1,0 +1,17 @@
+services:
+  doc:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: minisource-docs
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=production
+    networks:
+      - minisource-network
+    restart: unless-stopped
+
+networks:
+  minisource-network:
+    external: true

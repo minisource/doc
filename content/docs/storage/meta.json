@@ -1,0 +1,12 @@
+{
+  "title": "Storage",
+  "pages": [
+    "index",
+    "files",
+    "folders",
+    "shares",
+    "uploads",
+    "image-processing",
+    "sdk"
+  ]
+}

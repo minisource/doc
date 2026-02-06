@@ -49,6 +49,38 @@ MiniSource follows microservices architecture principles with:
   </Card>
 </Cards>
 
+## All Services
+
+<Cards>
+  <Card title="Auth Service" href="/docs/auth" icon="Lock">
+    Authentication, authorization, and user management
+  </Card>
+  <Card title="Gateway" href="/docs/gateway" icon="Globe">
+    API Gateway with rate limiting and routing
+  </Card>
+  <Card title="Notifier Service" href="/docs/notif" icon="Bell">
+    Multi-channel notifications (SMS, Email, Push)
+  </Card>
+  <Card title="Storage Service" href="/docs/storage" icon="HardDrive">
+    File storage and management
+  </Card>
+  <Card title="Scheduler Service" href="/docs/scheduler" icon="Clock">
+    Distributed job scheduling
+  </Card>
+  <Card title="Log Service" href="/docs/log" icon="FileText">
+    Centralized logging and analytics
+  </Card>
+  <Card title="Comment Service" href="/docs/comment" icon="MessageCircle">
+    Centralized commenting system
+  </Card>
+  <Card title="Ticket Service" href="/docs/ticket" icon="Ticket">
+    Customer support ticket management
+  </Card>
+  <Card title="Feedback Service" href="/docs/feedback" icon="MessageSquarePlus">
+    User feedback and feature requests
+  </Card>
+</Cards>
+
 ## Key Features
 
 ### Production-Ready
@@ -87,13 +119,19 @@ MiniSource follows microservices architecture principles with:
 ```
 minisource/
 ├── auth/           # Authentication service
+├── gateway/        # API gateway
 ├── notifier/       # Notification service
 ├── storage/        # File storage service
-├── payment/        # Payment service
 ├── scheduler/      # Job scheduler service
-├── gateway/        # API gateway
+├── log/            # Centralized logging service
+├── comment/        # Commenting service
+├── ticket/         # Support ticket service
+├── feedback/       # User feedback service
+├── payment/        # Payment service (.NET)
 ├── go-common/      # Shared Go libraries
-├── go-sdk/         # Client SDKs
+├── go-sdk/         # Client SDKs for all services
+├── csharp-common/  # Shared .NET libraries
+├── csharp-sdk/     # .NET client SDKs
 ├── go-template/    # Service template
 ├── infra/          # Infrastructure configs
 └── doc/            # Documentation

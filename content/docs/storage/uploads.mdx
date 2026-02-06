@@ -1,0 +1,263 @@
+---
+title: Chunked Uploads
+description: Upload large files using resumable chunked uploads
+---
+
+# Chunked Uploads
+
+For large files, the Storage Service supports chunked (resumable) uploads. This allows you to:
+
+- Upload files larger than the normal size limit
+- Resume interrupted uploads
+- Track upload progress
+
+## How It Works
+
+1. Create an upload session
+2. Upload chunks in any order
+3. Complete the upload when all chunks are uploaded
+
+## Create Upload Session
+
+Start a new chunked upload session.
+
+```http
+POST /api/v1/uploads
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+### Request Body
+
+```json
+{
+  "file_name": "large-video.mp4",
+  "mime_type": "video/mp4",
+  "total_size": 1073741824,
+  "folder_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "file_name": "large-video.mp4",
+    "mime_type": "video/mp4",
+    "total_size": 1073741824,
+    "chunk_size": 5242880,
+    "total_chunks": 205,
+    "uploaded_chunks": [],
+    "progress": 0,
+    "status": "pending",
+    "expires_at": "2024-01-16T10:30:00Z"
+  }
+}
+```
+
+## Upload Chunk
+
+Upload a single chunk.
+
+```http
+POST /api/v1/uploads/:id/chunks
+Authorization: Bearer <token>
+Content-Type: multipart/form-data
+```
+
+### Form Data
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `chunk_index` | int | Chunk index (0-based) |
+| `chunk` | file | Chunk data |
+
+### Example
+
+```bash
+# Upload chunk 0
+curl -X POST http://localhost:5004/api/v1/uploads/123.../chunks \
+  -H "Authorization: Bearer TOKEN" \
+  -F "chunk_index=0" \
+  -F "chunk=@chunk_0.bin"
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "uploaded_chunks": [0],
+    "progress": 0.49,
+    "status": "uploading"
+  }
+}
+```
+
+## Get Session Status
+
+Check upload session progress.
+
+```http
+GET /api/v1/uploads/:id
+Authorization: Bearer <token>
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "file_name": "large-video.mp4",
+    "total_chunks": 205,
+    "uploaded_chunks": [0, 1, 2, 3, 4],
+    "progress": 2.44,
+    "status": "uploading",
+    "expires_at": "2024-01-16T10:30:00Z"
+  }
+}
+```
+
+## Complete Upload
+
+Complete the upload after all chunks are uploaded.
+
+```http
+POST /api/v1/uploads/:id/complete
+Authorization: Bearer <token>
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "message": "Upload completed",
+  "data": {
+    "session_id": "123e4567-e89b-12d3-a456-426614174000",
+    "status": "completed"
+  }
+}
+```
+
+## Cancel Upload
+
+Cancel an upload session and clean up.
+
+```http
+DELETE /api/v1/uploads/:id
+Authorization: Bearer <token>
+```
+
+## List My Sessions
+
+List upload sessions for the current user.
+
+```http
+GET /api/v1/uploads
+Authorization: Bearer <token>
+```
+
+### Query Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `status` | Filter by status (pending, uploading, completed, failed) |
+
+---
+
+## Upload Session Lifecycle
+
+```
+  ┌─────────────┐
+  │   PENDING   │ ← Session created
+  └──────┬──────┘
+         │ First chunk uploaded
+         ▼
+  ┌─────────────┐
+  │  UPLOADING  │ ← Chunks being uploaded
+  └──────┬──────┘
+         │ All chunks + complete called
+         ▼
+  ┌─────────────┐     ┌─────────────┐
+  │  COMPLETED  │  OR │   FAILED    │
+  └─────────────┘     └─────────────┘
+```
+
+## Session Expiration
+
+Upload sessions expire after 24 hours (configurable). Expired sessions are automatically cleaned up.
+
+## Example: Full Upload Flow
+
+```python
+import requests
+import os
+
+# Configuration
+BASE_URL = "http://localhost:5004"
+TOKEN = "your-token"
+TENANT_ID = "your-tenant-id"
+FILE_PATH = "/path/to/large-file.mp4"
+
+headers = {
+    "Authorization": f"Bearer {TOKEN}",
+    "X-Tenant-ID": TENANT_ID
+}
+
+file_size = os.path.getsize(FILE_PATH)
+chunk_size = 5 * 1024 * 1024  # 5MB chunks
+
+# 1. Create session
+session = requests.post(
+    f"{BASE_URL}/api/v1/uploads",
+    headers=headers,
+    json={
+        "file_name": os.path.basename(FILE_PATH),
+        "mime_type": "video/mp4",
+        "total_size": file_size
+    }
+).json()["data"]
+
+session_id = session["id"]
+
+# 2. Upload chunks
+with open(FILE_PATH, "rb") as f:
+    chunk_index = 0
+    while True:
+        chunk_data = f.read(chunk_size)
+        if not chunk_data:
+            break
+        
+        requests.post(
+            f"{BASE_URL}/api/v1/uploads/{session_id}/chunks",
+            headers=headers,
+            files={"chunk": chunk_data},
+            data={"chunk_index": chunk_index}
+        )
+        chunk_index += 1
+        print(f"Uploaded chunk {chunk_index}/{session['total_chunks']}")
+
+# 3. Complete upload
+requests.post(
+    f"{BASE_URL}/api/v1/uploads/{session_id}/complete",
+    headers=headers
+)
+
+print("Upload completed!")
+```
+
+## Configuration
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `UPLOAD_CHUNK_SIZE` | 5MB | Default chunk size |
+| `UPLOAD_SESSION_TIMEOUT` | 86400 | Session timeout (seconds) |
+| `UPLOAD_CLEANUP_INTERVAL` | 3600 | Cleanup interval (seconds) |

@@ -1,0 +1,122 @@
+---
+title: Storage Service
+description: File storage microservice with S3 and local storage support
+---
+
+# Storage Service
+
+The Storage Service is a comprehensive file storage microservice that provides file management capabilities with multiple storage backend support, image processing, and secure file sharing.
+
+## Key Features
+
+- **Multiple Storage Providers**: S3-compatible (AWS S3, MinIO, DigitalOcean Spaces) and local filesystem
+- **Image Processing**: On-the-fly resize, crop, format conversion, and thumbnail generation
+- **File Sharing**: Password-protected share links with expiration and download limits
+- **Chunked Uploads**: Resumable uploads for large files
+- **Multi-tenant**: Full tenant isolation with configurable quotas
+- **OAuth 2.0**: Authentication via auth service token introspection
+
+## Architecture
+
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Storage Service                       │
+├─────────────────────────────────────────────────────────┤
+│  HTTP API Layer (Fiber)                                  │
+│  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │
+│  │  Files  │ │ Folders │ │ Shares  │ │ Uploads │       │
+│  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘       │
+├───────┼──────────┼──────────┼──────────┼───────────────┤
+│  Service Layer                                          │
+│  ┌─────────────────────────────────────────────────┐   │
+│  │  FileService  │  FolderService  │  ShareService │   │
+│  └─────────────────────────────────────────────────┘   │
+├─────────────────────────────────────────────────────────┤
+│  Repository Layer (GORM)                                │
+├─────────────────────────────────────────────────────────┤
+│  Storage Providers                                      │
+│  ┌──────────────┐  ┌──────────────┐                    │
+│  │  S3 Provider │  │Local Provider│                    │
+│  └──────────────┘  └──────────────┘                    │
+└─────────────────────────────────────────────────────────┘
+```
+
+## Quick Start
+
+### Using Docker Compose
+
+```bash
+cd storage
+
+# Start development environment
+docker-compose -f docker-compose.dev.yml up -d
+```
+
+### Configuration
+
+The service is configured via environment variables:
+
+```env
+# Server
+SERVER_PORT=5004
+
+# Database
+POSTGRES_HOST=localhost
+POSTGRES_PORT=5432
+POSTGRES_USER=minisource
+POSTGRES_PASSWORD=minisource
+POSTGRES_DB=storage
+
+# Storage Provider
+STORAGE_DEFAULT_PROVIDER=s3
+STORAGE_S3_ENDPOINT=localhost:9000
+STORAGE_S3_BUCKET=storage
+STORAGE_S3_ACCESS_KEY=minioadmin
+STORAGE_S3_SECRET_KEY=minioadmin
+STORAGE_S3_PATH_STYLE=true
+
+# Auth
+AUTH_SERVICE_URL=http://auth:5001
+AUTH_SERVICE_NAME=storage-service
+AUTH_SERVICE_SECRET=your-secret
+```
+
+## API Overview
+
+| Endpoint | Description |
+|----------|-------------|
+| `/api/v1/files` | File CRUD operations |
+| `/api/v1/folders` | Folder management |
+| `/api/v1/shares` | File sharing |
+| `/api/v1/uploads` | Chunked uploads |
+| `/api/v1/settings` | Settings and usage |
+| `/share/:token` | Public share access |
+
+## Authentication
+
+All API endpoints (except public share access and health checks) require OAuth 2.0 bearer token authentication:
+
+```bash
+curl -H "Authorization: Bearer YOUR_TOKEN" \
+     -H "X-Tenant-ID: YOUR_TENANT_ID" \
+     http://localhost:5004/api/v1/files
+```
+
+## Scopes
+
+| Scope | Description |
+|-------|-------------|
+| `storage:read` | Read files and folders |
+| `storage:write` | Upload and update files |
+| `storage:delete` | Delete files and folders |
+| `storage:share` | Create and manage share links |
+| `storage:admin` | Manage settings and providers |
+
+## Health Endpoints
+
+| Endpoint | Description |
+|----------|-------------|
+| `GET /health` | Service health status |
+| `GET /ready` | Readiness check (storage connectivity) |
+| `GET /live` | Liveness check |
+| `GET /health/storage` | Storage provider health |

@@ -1,0 +1,193 @@
+---
+title: Image Processing
+description: On-the-fly image transformations
+---
+
+# Image Processing
+
+The Storage Service provides powerful on-the-fly image processing capabilities. Transform images during download without modifying the original file.
+
+## Supported Operations
+
+| Operation | Parameter | Values | Description |
+|-----------|-----------|--------|-------------|
+| Resize | `w`, `h` | 1-4096 | Width and height in pixels |
+| Quality | `q` | 1-100 | JPEG/WebP quality |
+| Format | `f` | jpeg, png, webp, avif | Output format |
+| Fit | `fit` | contain, cover, fill, inside, outside | Resize mode |
+| Blur | `blur` | 0-100 | Gaussian blur |
+| Sharpen | `sharpen` | true | Apply sharpening |
+| Grayscale | `grayscale` | true | Convert to grayscale |
+| Rotate | `rotate` | 90, 180, 270 | Rotation degrees |
+| Flip | `flip` | true | Flip vertically |
+| Flop | `flop` | true | Flip horizontally |
+
+## Basic Usage
+
+Add query parameters to the download URL:
+
+```http
+GET /api/v1/files/:id/download?w=800&h=600
+```
+
+## Fit Modes
+
+### contain (default)
+
+Resize to fit within dimensions while maintaining aspect ratio. May result in letterboxing.
+
+```
+?w=800&h=600&fit=contain
+```
+
+### cover
+
+Resize to cover dimensions while maintaining aspect ratio. May crop edges.
+
+```
+?w=800&h=600&fit=cover
+```
+
+### fill
+
+Stretch to exactly fill dimensions (may distort).
+
+```
+?w=800&h=600&fit=fill
+```
+
+### inside
+
+Resize to be as large as possible while fitting inside dimensions.
+
+```
+?w=800&h=600&fit=inside
+```
+
+### outside
+
+Resize to be as small as possible while covering dimensions.
+
+```
+?w=800&h=600&fit=outside
+```
+
+## Examples
+
+### Thumbnail
+
+Create a 256x256 thumbnail:
+
+```
+/api/v1/files/123.../download?w=256&h=256&fit=cover
+```
+
+### Web Optimization
+
+Convert to WebP with quality 80:
+
+```
+/api/v1/files/123.../download?f=webp&q=80
+```
+
+### Profile Picture
+
+Square crop with face-friendly dimensions:
+
+```
+/api/v1/files/123.../download?w=200&h=200&fit=cover&q=90
+```
+
+### Blur Preview
+
+Create a blurred preview:
+
+```
+/api/v1/files/123.../download?w=400&blur=20
+```
+
+### Black & White
+
+Convert to grayscale:
+
+```
+/api/v1/files/123.../download?grayscale=true
+```
+
+### Combine Operations
+
+Multiple operations can be combined:
+
+```
+/api/v1/files/123.../download?w=800&h=600&fit=cover&f=webp&q=85&sharpen=true
+```
+
+## Pre-generated Thumbnails
+
+The service automatically generates thumbnails for images at common sizes:
+
+- 64x64
+- 128x128
+- 256x256
+- 512x512
+
+Access thumbnails directly:
+
+```http
+GET /api/v1/files/:id/thumbnail?size=256
+```
+
+This is faster than on-the-fly processing as thumbnails are pre-cached.
+
+## Supported Input Formats
+
+| Format | Extension | Notes |
+|--------|-----------|-------|
+| JPEG | .jpg, .jpeg | Full support |
+| PNG | .png | With alpha channel |
+| GIF | .gif | First frame only |
+| WebP | .webp | Animated not supported |
+| TIFF | .tiff, .tif | Basic support |
+| BMP | .bmp | Basic support |
+
+## Supported Output Formats
+
+| Format | Parameter | Notes |
+|--------|-----------|-------|
+| JPEG | `f=jpeg` | Best for photos |
+| PNG | `f=png` | Best for graphics with transparency |
+| WebP | `f=webp` | Best compression, wide support |
+| AVIF | `f=avif` | Best quality/size ratio |
+
+## Configuration
+
+| Setting | Default | Description |
+|---------|---------|-------------|
+| `IMAGE_MAX_WIDTH` | 4096 | Maximum output width |
+| `IMAGE_MAX_HEIGHT` | 4096 | Maximum output height |
+| `IMAGE_DEFAULT_QUALITY` | 85 | Default JPEG/WebP quality |
+| `IMAGE_THUMBNAIL_SIZES` | 64,128,256,512 | Pre-generated sizes |
+| `IMAGE_ENABLE_WEBP` | true | Enable WebP output |
+| `IMAGE_ENABLE_AVIF` | true | Enable AVIF output |
+
+## Performance Tips
+
+1. **Use Thumbnails**: For small images, use pre-generated thumbnails
+2. **Enable WebP**: Modern format with better compression
+3. **Set Quality**: Lower quality = smaller file size
+4. **Cache Results**: Use CDN or browser caching
+5. **Limit Dimensions**: Don't request larger than needed
+
+## Caching
+
+Transformed images are cached with the following headers:
+
+```http
+Cache-Control: public, max-age=86400
+```
+
+For thumbnails, caching is more aggressive:
+
+```http
+Cache-Control: public, max-age=604800
+```

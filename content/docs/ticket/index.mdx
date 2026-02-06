@@ -1,0 +1,323 @@
+---
+title: Ticket Service
+description: Customer support ticket management system
+icon: Ticket
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+# Ticket Service
+
+The Ticket Service provides a comprehensive customer support ticket management system with departments, SLA policies, agent assignment, and full conversation history.
+
+## Features
+
+- **Ticket Management** - Create, update, and track support tickets
+- **Department Routing** - Route tickets to appropriate departments
+- **Agent Assignment** - Auto-assign or manual agent assignment
+- **SLA Policies** - Define response and resolution time targets
+- **Priority Levels** - Urgent, High, Normal, Low priority
+- **Status Workflow** - Open, In Progress, Waiting, Resolved, Closed
+- **Canned Responses** - Pre-defined response templates
+- **Full History** - Complete audit trail of changes
+- **Multi-tenant** - Full tenant isolation
+
+## Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SERVER_PORT` | HTTP server port | `5011` |
+| `MONGODB_URI` | MongoDB connection string | - |
+| `MONGODB_DATABASE` | Database name | `ticket_db` |
+| `AUTH_SERVICE_URL` | Auth service URL | - |
+| `COMMENT_SERVICE_URL` | Comment service URL | - |
+| `REDIS_HOST` | Redis host | - |
+| `REDIS_PORT` | Redis port | `6379` |
+
+## API Reference
+
+### Create Ticket
+
+<Tabs items={['Request', 'Response']}>
+  <Tab value="Request">
+```bash
+POST /api/v1/tickets
+Content-Type: application/json
+Authorization: Bearer <token>
+X-Tenant-ID: <tenant-id>
+X-User-ID: <user-id>
+
+{
+  "subject": "Cannot login to my account",
+  "description": "I'm getting an error when trying to login...",
+  "type": "question",
+  "priority": "high",
+  "departmentId": "dept-support",
+  "categoryId": "cat-account",
+  "tags": ["login", "account"]
+}
+```
+  </Tab>
+  <Tab value="Response">
+```json
+{
+  "success": true,
+  "data": {
+    "id": "ticket-abc123",
+    "number": "TKT-00001",
+    "subject": "Cannot login to my account",
+    "description": "I'm getting an error when trying to login...",
+    "status": "open",
+    "priority": "high",
+    "type": "question",
+    "departmentId": "dept-support",
+    "categoryId": "cat-account",
+    "requesterId": "user-456",
+    "requesterName": "John Doe",
+    "requesterEmail": "john@example.com",
+    "tags": ["login", "account"],
+    "createdAt": "2024-01-15T10:30:00Z"
+  }
+}
+```
+  </Tab>
+</Tabs>
+
+### List Tickets
+
+```bash
+GET /api/v1/tickets?status=open,in_progress&priority=high&page=1&per_page=20
+Authorization: Bearer <token>
+X-Tenant-ID: <tenant-id>
+```
+
+### Get Ticket
+
+```bash
+GET /api/v1/tickets/{id}
+Authorization: Bearer <token>
+X-Tenant-ID: <tenant-id>
+```
+
+### Update Ticket
+
+```bash
+PATCH /api/v1/tickets/{id}
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "priority": "urgent",
+  "status": "in_progress"
+}
+```
+
+### Add Message
+
+```bash
+POST /api/v1/tickets/{id}/messages
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "content": "Thank you for contacting support. Let me help you...",
+  "type": "public"
+}
+```
+
+## Agent Operations
+
+### Assign Ticket
+
+```bash
+POST /api/v1/tickets/{id}/assign
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "agentId": "agent-789"
+}
+```
+
+### Take Ticket
+
+```bash
+POST /api/v1/tickets/{id}/take
+Authorization: Bearer <token>
+```
+
+### Transfer Ticket
+
+```bash
+POST /api/v1/tickets/{id}/transfer
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "departmentId": "dept-billing",
+  "note": "Customer has billing question"
+}
+```
+
+## Admin Operations
+
+### Departments
+
+```bash
+# List departments
+GET /api/v1/departments
+
+# Create department
+POST /api/v1/admin/departments
+{
+  "name": "Technical Support",
+  "description": "Technical issues and troubleshooting",
+  "email": "tech@example.com"
+}
+
+# Update department
+PUT /api/v1/admin/departments/{id}
+
+# Delete department
+DELETE /api/v1/admin/departments/{id}
+```
+
+### SLA Policies
+
+```bash
+# List SLA policies
+GET /api/v1/admin/sla-policies
+
+# Create SLA policy
+POST /api/v1/admin/sla-policies
+{
+  "name": "Premium Support",
+  "description": "For premium customers",
+  "priorities": {
+    "urgent": {
+      "firstResponseTime": 30,
+      "resolutionTime": 240
+    },
+    "high": {
+      "firstResponseTime": 60,
+      "resolutionTime": 480
+    }
+  }
+}
+```
+
+### Canned Responses
+
+```bash
+# List canned responses
+GET /api/v1/admin/canned-responses
+
+# Create canned response
+POST /api/v1/admin/canned-responses
+{
+  "title": "Password Reset",
+  "content": "To reset your password, please visit...",
+  "shortcut": "!password"
+}
+```
+
+## Using go-sdk
+
+```go
+import "github.com/minisource/go-sdk/ticket"
+
+// Create client
+client := ticket.NewClient(ticket.ClientConfig{
+    BaseURL:      "http://ticket:5011",
+    ClientID:     cfg.Auth.ClientID,
+    ClientSecret: cfg.Auth.ClientSecret,
+})
+
+// Create ticket
+resp, err := client.Create(ctx, ticket.CreateTicketRequest{
+    TenantID:    tenantID,
+    Subject:     "Support request",
+    Description: "Description of the issue",
+    Priority:    ticket.PriorityHigh,
+    Type:        ticket.TypeQuestion,
+})
+
+// List tickets
+tickets, err := client.List(ctx, tenantID, ticket.TicketFilter{
+    Status:   []ticket.TicketStatus{ticket.StatusOpen},
+    Priority: []ticket.TicketPriority{ticket.PriorityHigh},
+    Page:     1,
+    PerPage:  20,
+})
+
+// Add message
+err := client.AddMessage(ctx, tenantID, ticketID, ticket.CreateMessageRequest{
+    Content: "Response message",
+    Type:    ticket.MessagePublic,
+})
+```
+
+## Status Workflow
+
+```
+┌────────┐     ┌─────────────┐     ┌─────────────┐
+│  New   │────▶│    Open     │────▶│ In Progress │
+└────────┘     └─────────────┘     └──────┬──────┘
+                                          │
+              ┌─────────────┐              │
+              │   Waiting   │◀─────────────┤
+              └──────┬──────┘              │
+                     │                     │
+                     ▼                     ▼
+              ┌─────────────┐     ┌─────────────┐
+              │  Resolved   │────▶│   Closed    │
+              └─────────────┘     └─────────────┘
+```
+
+## Data Models
+
+### Ticket Status
+
+| Status | Description |
+|--------|-------------|
+| `new` | Newly created, not yet processed |
+| `open` | Ticket is open and waiting for action |
+| `in_progress` | Agent is working on ticket |
+| `waiting` | Waiting for customer response |
+| `pending` | Waiting for third party |
+| `on_hold` | Temporarily on hold |
+| `resolved` | Issue has been resolved |
+| `closed` | Ticket is closed |
+| `cancelled` | Ticket was cancelled |
+
+### Ticket Priority
+
+| Priority | Description | SLA Target |
+|----------|-------------|------------|
+| `urgent` | Critical issue | 1 hour |
+| `high` | Important issue | 4 hours |
+| `normal` | Standard request | 24 hours |
+| `low` | Non-urgent request | 72 hours |
+
+### Ticket Type
+
+| Type | Description |
+|------|-------------|
+| `question` | General question |
+| `problem` | Issue or bug report |
+| `incident` | System incident |
+| `request` | Feature request |
+| `task` | Internal task |
+| `feedback` | Customer feedback |
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `TICKET_NOT_FOUND` | Ticket does not exist |
+| `DEPARTMENT_NOT_FOUND` | Department not found |
+| `AGENT_NOT_FOUND` | Agent not found |
+| `INVALID_STATUS` | Invalid status transition |
+| `SLA_BREACH` | SLA policy breached |
+| `UNAUTHORIZED` | User not authorized |

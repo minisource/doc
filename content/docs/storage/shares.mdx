@@ -1,0 +1,214 @@
+---
+title: File Sharing
+description: Create and manage share links for files
+---
+
+# File Sharing
+
+The Storage Service allows you to create secure share links for files, with optional password protection, expiration, and download limits.
+
+## Create Share Link
+
+Create a share link for a file.
+
+```http
+POST /api/v1/shares
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+### Request Body
+
+```json
+{
+  "file_id": "123e4567-e89b-12d3-a456-426614174000",
+  "password": "optional-password",
+  "expires_at": "2024-12-31T23:59:59Z",
+  "max_downloads": 10,
+  "allow_preview": true
+}
+```
+
+### Parameters
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `file_id` | uuid | Yes | File to share |
+| `password` | string | No | Password protect the share |
+| `expires_at` | datetime | No | Expiration time |
+| `max_downloads` | int | No | Maximum download count |
+| `allow_preview` | bool | No | Allow preview without download |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "550e8400-e29b-41d4-a716-446655440000",
+    "file_id": "123e4567-e89b-12d3-a456-426614174000",
+    "token": "abc123def456...",
+    "share_url": "http://localhost:5004/share/abc123def456",
+    "has_password": true,
+    "expires_at": "2024-12-31T23:59:59Z",
+    "max_downloads": 10,
+    "download_count": 0,
+    "allow_preview": true,
+    "is_active": true,
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+## Get Share
+
+```http
+GET /api/v1/shares/:id
+Authorization: Bearer <token>
+```
+
+## List My Shares
+
+List share links created by the current user.
+
+```http
+GET /api/v1/shares
+Authorization: Bearer <token>
+```
+
+### Query Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `page` | 1 | Page number |
+| `page_size` | 20 | Items per page |
+
+## Get File Shares
+
+List all share links for a specific file.
+
+```http
+GET /api/v1/files/:file_id/shares
+Authorization: Bearer <token>
+```
+
+## Delete Share
+
+Permanently delete a share link.
+
+```http
+DELETE /api/v1/shares/:id
+Authorization: Bearer <token>
+```
+
+## Deactivate Share
+
+Deactivate a share without deleting it (can be reactivated later).
+
+```http
+POST /api/v1/shares/:id/deactivate
+Authorization: Bearer <token>
+```
+
+---
+
+## Public Share Access
+
+These endpoints do not require authentication.
+
+### Get Share Info
+
+```http
+GET /share/:token
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "file_name": "document.pdf",
+    "has_password": true,
+    "allow_preview": true,
+    "expires_at": "2024-12-31T23:59:59Z"
+  }
+}
+```
+
+### Download Shared File
+
+```http
+GET /share/:token/download
+```
+
+If password protected:
+
+```http
+GET /share/:token/download?password=your-password
+```
+
+### Error Responses
+
+| Status | Error |
+|--------|-------|
+| 401 | `password required` |
+| 401 | `invalid password` |
+| 404 | Share not found or expired |
+| 404 | Download limit reached |
+
+## Share Security
+
+Shares are secured with:
+
+1. **Unique Token**: 64-character random token
+2. **Password Hashing**: Passwords are hashed with bcrypt
+3. **Expiration**: Optional time-based expiration
+4. **Download Limits**: Optional maximum download count
+5. **Activity Tracking**: Download count is tracked
+
+<Callout type="info">
+Share tokens are cryptographically secure random strings. The original password is never stored - only the bcrypt hash.
+</Callout>
+
+## Example Usage
+
+### Creating a Temporary Share
+
+```bash
+# Create share that expires in 24 hours
+curl -X POST http://localhost:5004/api/v1/shares \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "file_id": "123e4567-e89b-12d3-a456-426614174000",
+    "expires_at": "2024-01-16T10:30:00Z"
+  }'
+```
+
+### Password Protected Share
+
+```bash
+# Create password-protected share
+curl -X POST http://localhost:5004/api/v1/shares \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "file_id": "123e4567-e89b-12d3-a456-426614174000",
+    "password": "secret123",
+    "allow_preview": false
+  }'
+```
+
+### One-Time Download
+
+```bash
+# Create single-use share link
+curl -X POST http://localhost:5004/api/v1/shares \
+  -H "Authorization: Bearer TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "file_id": "123e4567-e89b-12d3-a456-426614174000",
+    "max_downloads": 1
+  }'
+```

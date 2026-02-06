@@ -1,0 +1,247 @@
+---
+title: Comment Service
+description: Centralized commenting system for all Minisource services
+icon: MessageCircle
+---
+
+import { Callout } from 'fumadocs-ui/components/callout';
+import { Tab, Tabs } from 'fumadocs-ui/components/tabs';
+
+# Comment Service
+
+The Comment Service provides a centralized commenting system that can be used by any other service in the Minisource ecosystem. It supports threaded comments, reactions, mentions, and real-time updates.
+
+## Features
+
+- **Threaded Comments** - Nested replies with configurable depth
+- **Reactions** - Like, dislike, and custom reactions
+- **Mentions** - User mentions with @username syntax
+- **Entity-based** - Comments can be attached to any entity type
+- **Multi-tenant** - Full tenant isolation
+- **Moderation** - Content moderation support
+- **Real-time** - WebSocket support for live updates
+
+## Architecture
+
+```
+┌──────────────┐     ┌──────────────┐
+│   Ticket     │────▶│   Comment    │
+│   Service    │     │   Service    │
+└──────────────┘     └──────┬───────┘
+                            │
+┌──────────────┐            │
+│   Feedback   │────────────┤
+│   Service    │            │
+└──────────────┘            ▼
+                     ┌──────────────┐
+                     │   MongoDB    │
+                     └──────────────┘
+```
+
+## Configuration
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `SERVER_PORT` | HTTP server port | `5010` |
+| `MONGODB_URI` | MongoDB connection string | - |
+| `MONGODB_DATABASE` | Database name | `comment_db` |
+| `AUTH_SERVICE_URL` | Auth service URL | - |
+| `REDIS_HOST` | Redis host for caching | - |
+| `REDIS_PORT` | Redis port | `6379` |
+
+## API Reference
+
+### Create Comment
+
+<Tabs items={['Request', 'Response']}>
+  <Tab value="Request">
+```bash
+POST /api/v1/comments
+Content-Type: application/json
+Authorization: Bearer <token>
+X-Tenant-ID: <tenant-id>
+
+{
+  "entityType": "ticket",
+  "entityId": "ticket-123",
+  "content": "This is a comment with @john mention",
+  "parentId": null
+}
+```
+  </Tab>
+  <Tab value="Response">
+```json
+{
+  "success": true,
+  "data": {
+    "id": "comment-abc123",
+    "entityType": "ticket",
+    "entityId": "ticket-123",
+    "content": "This is a comment with @john mention",
+    "authorId": "user-456",
+    "authorName": "Jane Doe",
+    "mentions": ["john"],
+    "parentId": null,
+    "replyCount": 0,
+    "reactions": {},
+    "createdAt": "2024-01-15T10:30:00Z"
+  }
+}
+```
+  </Tab>
+</Tabs>
+
+### Get Comments
+
+```bash
+GET /api/v1/comments?entityType=ticket&entityId=ticket-123&page=1&per_page=20
+Authorization: Bearer <token>
+X-Tenant-ID: <tenant-id>
+```
+
+### Add Reaction
+
+```bash
+POST /api/v1/comments/{id}/reactions
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "type": "like"
+}
+```
+
+### Reply to Comment
+
+```bash
+POST /api/v1/comments
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "entityType": "ticket",
+  "entityId": "ticket-123",
+  "content": "This is a reply",
+  "parentId": "comment-abc123"
+}
+```
+
+## Using go-sdk
+
+<Callout type="info">
+The Comment Service is typically accessed through other services using the go-sdk.
+</Callout>
+
+```go
+import "github.com/minisource/go-sdk/comment"
+
+// Create client
+client := comment.NewClient(comment.ClientConfig{
+    BaseURL:      "http://comment:5010",
+    ClientID:     cfg.Auth.ClientID,
+    ClientSecret: cfg.Auth.ClientSecret,
+})
+
+// Create a comment
+resp, err := client.Create(ctx, comment.CreateRequest{
+    TenantID:   tenantID,
+    EntityType: "ticket",
+    EntityID:   ticketID,
+    Content:    "Comment content",
+    AuthorID:   userID,
+    AuthorName: userName,
+})
+
+// List comments
+comments, err := client.List(ctx, tenantID, comment.ListFilter{
+    EntityType: "ticket",
+    EntityID:   ticketID,
+    Page:       1,
+    PerPage:    20,
+})
+
+// Add reaction
+err := client.AddReaction(ctx, tenantID, commentID, userID, "like")
+```
+
+## Integration Guide
+
+### Using in Ticket Service
+
+The Ticket Service uses Comment Service for ticket messages:
+
+```go
+// In ticket service handler
+func (h *Handler) AddMessage(c *fiber.Ctx) error {
+    var req AddMessageRequest
+    if err := c.BodyParser(&req); err != nil {
+        return response.BadRequest(c, err.Error())
+    }
+
+    // Create comment via go-sdk
+    comment, err := h.commentClient.Create(ctx, comment.CreateRequest{
+        TenantID:   tenantID,
+        EntityType: "ticket",
+        EntityID:   ticketID,
+        Content:    req.Content,
+        AuthorID:   userID,
+        AuthorName: userName,
+    })
+    if err != nil {
+        return response.InternalError(c, err.Error())
+    }
+
+    return response.OK(c, comment)
+}
+```
+
+### Using in Feedback Service
+
+The Feedback Service uses Comment Service for feedback discussions:
+
+```go
+// In feedback service
+func (s *Service) AddComment(ctx context.Context, feedbackID, userID, content string) error {
+    _, err := s.commentClient.Create(ctx, comment.CreateRequest{
+        TenantID:   ctx.Value("tenant_id").(string),
+        EntityType: "feedback",
+        EntityID:   feedbackID,
+        Content:    content,
+        AuthorID:   userID,
+    })
+    return err
+}
+```
+
+## Data Model
+
+### Comment
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `id` | string | Unique identifier |
+| `tenantId` | string | Tenant identifier |
+| `entityType` | string | Type of parent entity |
+| `entityId` | string | Parent entity ID |
+| `content` | string | Comment content |
+| `authorId` | string | Author user ID |
+| `authorName` | string | Author display name |
+| `parentId` | string | Parent comment ID (for replies) |
+| `mentions` | []string | Mentioned usernames |
+| `attachments` | []Attachment | Attached files |
+| `reactions` | map[string]int | Reaction counts |
+| `replyCount` | int | Number of replies |
+| `isEdited` | bool | Whether edited |
+| `createdAt` | timestamp | Creation time |
+| `updatedAt` | timestamp | Last update time |
+
+## Error Codes
+
+| Code | Description |
+|------|-------------|
+| `COMMENT_NOT_FOUND` | Comment does not exist |
+| `ENTITY_NOT_FOUND` | Parent entity not found |
+| `UNAUTHORIZED` | User not authorized |
+| `INVALID_PARENT` | Invalid parent comment |
+| `CONTENT_TOO_LONG` | Content exceeds max length |
+| `MAX_DEPTH_EXCEEDED` | Reply depth exceeded |

@@ -1,0 +1,256 @@
+---
+title: Folders API
+description: Folder management and navigation
+---
+
+# Folders API
+
+The Folders API provides endpoints for creating and managing a hierarchical folder structure.
+
+## Create Folder
+
+Create a new folder.
+
+```http
+POST /api/v1/folders
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+### Request Body
+
+```json
+{
+  "name": "Documents",
+  "description": "My documents folder",
+  "parent_id": null
+}
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "id": "123e4567-e89b-12d3-a456-426614174000",
+    "tenant_id": "550e8400-e29b-41d4-a716-446655440000",
+    "parent_id": null,
+    "name": "Documents",
+    "path": "/Documents",
+    "description": "My documents folder",
+    "created_by": "user-uuid",
+    "created_at": "2024-01-15T10:30:00Z"
+  }
+}
+```
+
+## Get Folder
+
+```http
+GET /api/v1/folders/:id
+Authorization: Bearer <token>
+```
+
+## Update Folder
+
+```http
+PATCH /api/v1/folders/:id
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+### Request Body
+
+```json
+{
+  "name": "New Name",
+  "description": "Updated description"
+}
+```
+
+## Delete Folder
+
+Deletes a folder and all its contents (files and subfolders).
+
+```http
+DELETE /api/v1/folders/:id
+Authorization: Bearer <token>
+```
+
+<Callout type="warning">
+This operation is destructive and will permanently delete all files and subfolders within the folder.
+</Callout>
+
+## List Folders
+
+```http
+GET /api/v1/folders
+Authorization: Bearer <token>
+```
+
+### Query Parameters
+
+| Parameter | Description |
+|-----------|-------------|
+| `parent_id` | Filter by parent folder (null for root) |
+| `name` | Filter by name |
+| `page` | Page number (default: 1) |
+| `page_size` | Items per page (default: 20) |
+| `sort_by` | Sort field (name, created_at) |
+| `sort_order` | Sort order (asc, desc) |
+
+## Get Folder Tree
+
+Get the folder structure as a tree.
+
+```http
+GET /api/v1/folders/tree
+Authorization: Bearer <token>
+```
+
+### Query Parameters
+
+| Parameter | Default | Description |
+|-----------|---------|-------------|
+| `parent_id` | null | Root of tree (null for all) |
+| `depth` | -1 | Tree depth (-1 for unlimited) |
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "123...",
+      "name": "Documents",
+      "path": "/Documents",
+      "children": [
+        {
+          "id": "456...",
+          "name": "Work",
+          "path": "/Documents/Work",
+          "children": []
+        },
+        {
+          "id": "789...",
+          "name": "Personal",
+          "path": "/Documents/Personal",
+          "children": []
+        }
+      ],
+      "file_count": 5,
+      "folder_count": 2
+    }
+  ]
+}
+```
+
+## Get Breadcrumb
+
+Get the breadcrumb path for a folder.
+
+```http
+GET /api/v1/folders/:id/breadcrumb
+Authorization: Bearer <token>
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": [
+    {
+      "id": "123...",
+      "name": "Documents",
+      "path": "/Documents"
+    },
+    {
+      "id": "456...",
+      "name": "Work",
+      "path": "/Documents/Work"
+    },
+    {
+      "id": "789...",
+      "name": "Projects",
+      "path": "/Documents/Work/Projects"
+    }
+  ]
+}
+```
+
+## Get Folder Contents
+
+Get files and subfolders in a folder.
+
+```http
+GET /api/v1/folders/:id/contents
+Authorization: Bearer <token>
+```
+
+Use `root` as the ID to get root folder contents:
+
+```http
+GET /api/v1/folders/root/contents
+```
+
+### Response
+
+```json
+{
+  "success": true,
+  "data": {
+    "folder": {
+      "id": "123...",
+      "name": "Documents",
+      "path": "/Documents"
+    },
+    "subfolders": [
+      {
+        "id": "456...",
+        "name": "Work",
+        "path": "/Documents/Work"
+      }
+    ],
+    "files": [
+      {
+        "id": "789...",
+        "name": "readme.txt",
+        "mime_type": "text/plain",
+        "size": 1024
+      }
+    ],
+    "stats": {
+      "file_count": 15,
+      "folder_count": 3,
+      "total_size": 10485760
+    }
+  }
+}
+```
+
+## Move Folder
+
+Move a folder to a new parent.
+
+```http
+POST /api/v1/folders/:id/move
+Authorization: Bearer <token>
+Content-Type: application/json
+```
+
+### Request Body
+
+```json
+{
+  "parent_id": "550e8400-e29b-41d4-a716-446655440000"
+}
+```
+
+Set `parent_id` to `null` to move to root.
+
+<Callout type="info">
+When a folder is moved, all file paths within it are automatically updated to reflect the new location.
+</Callout>

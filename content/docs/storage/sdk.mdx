@@ -1,0 +1,276 @@
+---
+title: Go SDK
+description: Go client library for the Storage Service
+---
+
+# Go SDK
+
+The Go SDK provides a type-safe client for interacting with the Storage Service.
+
+## Installation
+
+```bash
+go get github.com/minisource/go-sdk
+```
+
+## Quick Start
+
+```go
+package main
+
+import (
+    "context"
+    "fmt"
+    "os"
+    
+    "github.com/minisource/go-sdk/storage"
+)
+
+func main() {
+    // Create client
+    client := storage.NewClient(storage.ClientConfig{
+        BaseURL:  "http://localhost:5004",
+        Token:    "your-oauth-token",
+        TenantID: "your-tenant-id",
+    })
+    
+    // Upload a file
+    file, _ := os.Open("document.pdf")
+    defer file.Close()
+    
+    result, err := client.Upload(context.Background(), "document.pdf", file, nil)
+    if err != nil {
+        panic(err)
+    }
+    
+    fmt.Printf("Uploaded: %s (%d bytes)\n", result.Name, result.Size)
+}
+```
+
+## File Operations
+
+### Upload
+
+```go
+// Upload from file path
+file, err := client.UploadFile(ctx, "/path/to/file.pdf", nil)
+
+// Upload bytes
+file, err := client.UploadBytes(ctx, "data.txt", []byte("content"), nil)
+
+// Upload with folder
+folderID := uuid.MustParse("550e8400-...")
+file, err := client.Upload(ctx, "file.pdf", reader, &folderID)
+```
+
+### Download
+
+```go
+// Download file
+reader, contentType, err := client.Download(ctx, fileID)
+defer reader.Close()
+
+// Download with transformations
+opts := storage.ImageTransformOptions{
+    Width:   800,
+    Height:  600,
+    Format:  "webp",
+    Quality: 85,
+}
+reader, contentType, err := client.DownloadWithTransform(ctx, fileID, opts)
+
+// Download thumbnail
+reader, err := client.DownloadThumbnail(ctx, fileID, 256)
+```
+
+### Get Signed URL
+
+```go
+url, err := client.GetURL(ctx, fileID, 3600) // expires in 1 hour
+```
+
+### Update & Delete
+
+```go
+// Update metadata
+name := "new-name.pdf"
+isPublic := true
+file, err := client.Update(ctx, fileID, &name, &isPublic, nil, nil)
+
+// Delete file
+err := client.Delete(ctx, fileID)
+```
+
+### List Files
+
+```go
+result, err := client.List(ctx, storage.FileListOptions{
+    ListOptions: storage.ListOptions{
+        Page:     1,
+        PageSize: 20,
+        SortBy:   "created_at",
+        SortOrder: "desc",
+    },
+    FolderID: &folderID,
+    FileType: "image",
+})
+
+for _, file := range result.Items {
+    fmt.Printf("%s - %d bytes\n", file.Name, file.Size)
+}
+```
+
+## Folder Operations
+
+```go
+// Create folder
+folder, err := client.CreateFolder(ctx, "Documents", "My docs", nil)
+
+// Create subfolder
+subfolder, err := client.CreateFolder(ctx, "Work", "", &folder.ID)
+
+// Get folder tree
+tree, err := client.GetFolderTree(ctx, nil, -1)
+
+// Get folder contents
+contents, err := client.GetFolderContents(ctx, &folderID)
+
+// Move folder
+folder, err := client.MoveFolder(ctx, folderID, &newParentID)
+```
+
+## File Sharing
+
+```go
+import "time"
+
+// Create share link
+expires := time.Now().Add(24 * time.Hour)
+maxDownloads := 10
+
+share, err := client.CreateShare(ctx, fileID, storage.CreateShareOptions{
+    Password:     "secret123",
+    ExpiresAt:    &expires,
+    MaxDownloads: &maxDownloads,
+    AllowPreview: true,
+})
+
+fmt.Printf("Share URL: %s\n", share.ShareURL)
+
+// Access public share (no auth required)
+info, err := client.AccessPublicShare(ctx, "token123")
+
+// Download public share
+reader, contentType, err := client.DownloadPublicShare(ctx, "token123", "password")
+```
+
+## Chunked Uploads
+
+For large files:
+
+```go
+file, err := os.Open("large-video.mp4")
+defer file.Close()
+
+stat, _ := file.Stat()
+
+// Upload with progress callback
+session, err := client.UploadLargeFile(
+    ctx,
+    "large-video.mp4",
+    "video/mp4",
+    file,
+    stat.Size(),
+    5*1024*1024, // 5MB chunks
+    nil,         // folder ID
+    func(uploaded, total int64) {
+        pct := float64(uploaded) / float64(total) * 100
+        fmt.Printf("\rProgress: %.1f%%", pct)
+    },
+)
+
+fmt.Printf("\nUpload complete: %s\n", session.ID)
+```
+
+### Manual Chunked Upload
+
+```go
+// Create session
+session, err := client.CreateUploadSession(ctx, "large.mp4", "video/mp4", fileSize, nil)
+
+// Upload chunks
+for i := 0; i < session.TotalChunks; i++ {
+    chunkData := readChunk(file, session.ChunkSize)
+    session, err = client.UploadChunk(ctx, session.ID, i, chunkData)
+}
+
+// Complete
+err = client.CompleteUpload(ctx, session.ID)
+```
+
+## Storage Usage
+
+```go
+usage, err := client.GetStorageUsage(ctx)
+
+fmt.Printf("Used: %s / %s (%.1f%%)\n", 
+    usage.TotalFormatted,
+    usage.QuotaFormatted,
+    usage.UsagePercent,
+)
+```
+
+## Health Checks
+
+```go
+// Service health
+err := client.Health(ctx)
+if err != nil {
+    log.Fatal("Storage service is down")
+}
+
+// Storage provider health
+health, err := client.StorageHealth(ctx)
+for provider, status := range health {
+    fmt.Printf("%s: %v\n", provider, status)
+}
+```
+
+## Error Handling
+
+```go
+file, err := client.Get(ctx, fileID)
+if err != nil {
+    // Check for specific errors
+    if strings.Contains(err.Error(), "not found") {
+        // Handle 404
+    }
+    return err
+}
+```
+
+## Configuration Options
+
+```go
+client := storage.NewClient(storage.ClientConfig{
+    BaseURL:  "http://localhost:5004",
+    Token:    "your-token",
+    TenantID: "your-tenant-id",
+    Timeout:  30 * time.Second,
+    Logger:   myLogger,
+    RetryConfig: &httpclient.RetryConfig{
+        MaxRetries: 3,
+        RetryDelay: time.Second,
+    },
+})
+```
+
+## Updating Credentials
+
+```go
+// Update token (after refresh)
+client.SetToken(newToken)
+
+// Switch tenant
+client.SetTenantID(newTenantID)
+```
