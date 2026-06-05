@@ -15,6 +15,28 @@ yarn dev
 
 Open http://localhost:3000 with your browser to see the result.
 
+## Docker
+
+Images are published to [Docker Hub](https://hub.docker.com/orgs/minisource/repositories) on every successful build to `main`.
+
+| Image | Tags |
+|-------|------|
+| `minisource/doc` | `latest`, commit SHA |
+
+```bash
+# Production (pre-built image)
+export TAG=latest
+docker compose -f docker-compose.prod.yml up -d
+
+# Local build
+docker compose up -d --build
+```
+
+### GitHub Actions secrets
+
+- `DOCKERHUB_USERNAME` — Docker Hub username
+- `DOCKERHUB_TOKEN` — Docker Hub access token
+
 ## Explore
 
 In the project, you can see:
